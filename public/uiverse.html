@@ -1,0 +1,235 @@
+<!doctype html><html lang="zh-Hant-HK"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>Uiverse 元件預覽 · 筲箕灣堂新站提案</title><link rel="stylesheet" href="/style.css"><script src="/uiverse-preview.js" defer></script><main class="shell section"><a href="/" class="text-link">返回新站原型 ←</a><h1 style="margin:32px 0;font-size:36px">Uiverse 元件預覽</h1><p>直接呈現官方 Galaxy 原碼中的兩個元件，可以試按及勾選。這是本地預覽，不是 Uiverse 主站。</p><p style="margin:16px 0 32px">本次取得的官方倉庫目錄共有 3,802 個 HTML 元件；主站在 Zo 仍回傳 Cloudflare 403。新站採用經簡化的互動，統一字體和色彩。</p><div class="dashboard-grid"><section class="panel"><h2>按鈕原始元件</h2><p>cssbuttons-io_friendly-dragon-76</p><div class="uiverse-demo" style="height:180px;background:#edf0f3;margin:20px 0;display:grid;place-items:center"><template><button class="btn"> Button
+</button>
+<style>
+/* From Uiverse.io by cssbuttons-io - Tags: button */
+.btn {
+ position: relative;
+ font-size: 17px;
+ text-transform: uppercase;
+ text-decoration: none;
+ padding: 1em 2.5em;
+ display: inline-block;
+ border-radius: 6em;
+ transition: all .2s;
+ border: none;
+ font-family: inherit;
+ font-weight: 500;
+ color: black;
+ background-color: white;
+}
+
+.btn:hover {
+ transform: translateY(-3px);
+ box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
+}
+
+.btn:active {
+ transform: translateY(-1px);
+ box-shadow: 0 5px 10px rgba(0, 0, 0, 0.2);
+}
+
+.btn::after {
+ content: "";
+ display: inline-block;
+ height: 100%;
+ width: 100%;
+ border-radius: 100px;
+ position: absolute;
+ top: 0;
+ left: 0;
+ z-index: -1;
+ transition: all .4s;
+}
+
+.btn::after {
+ background-color: #fff;
+}
+
+.btn:hover::after {
+ transform: scaleX(1.4) scaleY(1.6);
+ opacity: 0;
+}
+</style>
+</template></div><details><summary>查看原始 HTML / CSS</summary><pre style="overflow:auto;font-size:12px">&lt;button class=&quot;btn&quot;&gt; Button
+&lt;/button&gt;
+&lt;style&gt;
+/* From Uiverse.io by cssbuttons-io - Tags: button */
+.btn {
+ position: relative;
+ font-size: 17px;
+ text-transform: uppercase;
+ text-decoration: none;
+ padding: 1em 2.5em;
+ display: inline-block;
+ border-radius: 6em;
+ transition: all .2s;
+ border: none;
+ font-family: inherit;
+ font-weight: 500;
+ color: black;
+ background-color: white;
+}
+
+.btn:hover {
+ transform: translateY(-3px);
+ box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
+}
+
+.btn:active {
+ transform: translateY(-1px);
+ box-shadow: 0 5px 10px rgba(0, 0, 0, 0.2);
+}
+
+.btn::after {
+ content: &quot;&quot;;
+ display: inline-block;
+ height: 100%;
+ width: 100%;
+ border-radius: 100px;
+ position: absolute;
+ top: 0;
+ left: 0;
+ z-index: -1;
+ transition: all .4s;
+}
+
+.btn::after {
+ background-color: #fff;
+}
+
+.btn:hover::after {
+ transform: scaleX(1.4) scaleY(1.6);
+ opacity: 0;
+}
+&lt;/style&gt;
+</pre></details></section><section class="panel"><h2>勾選框原始元件</h2><p>Alaner-xs_white-parrot-57</p><div class="uiverse-demo" style="height:180px;background:#edf0f3;margin:20px 0;display:grid;place-items:center"><template><label class="container">
+  <input checked="checked" type="checkbox">
+  <div class="checkmark"></div>
+</label>
+<style>
+/* From Uiverse.io by Alaner-xs - Tags: checkbox */
+/* Hide the default checkbox */
+.container input {
+ position: absolute;
+ opacity: 0;
+ cursor: pointer;
+ height: 0;
+ width: 0;
+}
+
+.container {
+ display: block;
+ position: relative;
+ cursor: pointer;
+ font-size: 20px;
+ user-select: none;
+}
+
+/* Create a custom checkbox */
+.checkmark {
+ position: relative;
+ top: 0;
+ left: 0;
+ height: 1.3em;
+ width: 1.3em;
+ background-color: #ccc;
+ border-bottom-left-radius: 15px;
+ border-top-right-radius: 15px;
+ box-shadow: 0px 0px 17px #c7bbb8;
+}
+
+/* When the checkbox is checked, add a blue background */
+.container input:checked ~ .checkmark {
+ background-color: #f34b21;
+ box-shadow: 0px 0px 17px #f34b21;
+}
+
+/* Create the checkmark/indicator (hidden when not checked) */
+.checkmark:after {
+ content: "";
+ position: absolute;
+ display: none;
+}
+
+/* Show the checkmark when checked */
+.container input:checked ~ .checkmark:after {
+ display: block;
+}
+
+/* Style the checkmark/indicator */
+.container .checkmark:after {
+ left: 0.45em;
+ top: 0.25em;
+ width: 0.25em;
+ height: 0.5em;
+ border: solid rgb(233, 222, 222);
+ border-width: 0 0.15em 0.15em 0;
+ transform: rotate(45deg);
+}
+</style>
+</template></div><details><summary>查看原始 HTML / CSS</summary><pre style="overflow:auto;font-size:12px">&lt;label class=&quot;container&quot;&gt;
+  &lt;input checked=&quot;checked&quot; type=&quot;checkbox&quot;&gt;
+  &lt;div class=&quot;checkmark&quot;&gt;&lt;/div&gt;
+&lt;/label&gt;
+&lt;style&gt;
+/* From Uiverse.io by Alaner-xs - Tags: checkbox */
+/* Hide the default checkbox */
+.container input {
+ position: absolute;
+ opacity: 0;
+ cursor: pointer;
+ height: 0;
+ width: 0;
+}
+
+.container {
+ display: block;
+ position: relative;
+ cursor: pointer;
+ font-size: 20px;
+ user-select: none;
+}
+
+/* Create a custom checkbox */
+.checkmark {
+ position: relative;
+ top: 0;
+ left: 0;
+ height: 1.3em;
+ width: 1.3em;
+ background-color: #ccc;
+ border-bottom-left-radius: 15px;
+ border-top-right-radius: 15px;
+ box-shadow: 0px 0px 17px #c7bbb8;
+}
+
+/* When the checkbox is checked, add a blue background */
+.container input:checked ~ .checkmark {
+ background-color: #f34b21;
+ box-shadow: 0px 0px 17px #f34b21;
+}
+
+/* Create the checkmark/indicator (hidden when not checked) */
+.checkmark:after {
+ content: &quot;&quot;;
+ position: absolute;
+ display: none;
+}
+
+/* Show the checkmark when checked */
+.container input:checked ~ .checkmark:after {
+ display: block;
+}
+
+/* Style the checkmark/indicator */
+.container .checkmark:after {
+ left: 0.45em;
+ top: 0.25em;
+ width: 0.25em;
+ height: 0.5em;
+ border: solid rgb(233, 222, 222);
+ border-width: 0 0.15em 0.15em 0;
+ transform: rotate(45deg);
+}
+&lt;/style&gt;
+</pre></details></section></div><p style="margin-top:28px"><a class="text-link" href="/credits.html">作者、來源與 MIT 授權 →</a></p></main></html>

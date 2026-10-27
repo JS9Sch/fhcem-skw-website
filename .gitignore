@@ -1,0 +1,14 @@
+node_modules/
+.wrangler/
+.env
+.env.*
+.dev.vars
+.dev.vars.*
+!.dev.vars.example
+evidence/
+docs/audit*/
+*.zip
+*.har
+*storage-state*.json
+*cookie*.json
+.DS_Store
