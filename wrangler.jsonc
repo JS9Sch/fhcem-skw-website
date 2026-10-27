@@ -4,6 +4,10 @@
   "main": "src/worker.js",
   "compatibility_date": "2026-10-19",
   "workers_dev": true,
+  "durable_objects": {
+    "bindings": [{ "name": "SESSIONS", "class_name": "PreviewSession" }]
+  },
+  "migrations": [{ "tag": "session-v1", "new_sqlite_classes": ["PreviewSession"] }],
   "assets": {
     "directory": "./public",
     "binding": "ASSETS",

@@ -1,13 +1,14 @@
 from playwright.sync_api import sync_playwright, expect
 from pathlib import Path
 import json, zipfile, re, sys, getpass
-BASE=sys.argv[1] if len(sys.argv)>1 else 'https://localhost:8787'
+from browser_target import browser_target, browser_context, require_page_origin
+BASE,LOCAL_TLS=browser_target(sys.argv[1] if len(sys.argv)>1 else 'https://localhost:8787')
 OUT=Path(__file__).resolve().parents[1]/'evidence'
 password=getpass.getpass('Preview password (hidden): ')
 errors=[]; results=[]
 with sync_playwright() as p:
  b=p.chromium.launch(headless=True)
- ctx=b.new_context(ignore_https_errors=BASE.startswith('https://localhost'),viewport={'width':1440,'height':1000},accept_downloads=True)
+ ctx=browser_context(b,BASE,viewport={'width':1440,'height':1000},accept_downloads=True)
  page=ctx.new_page();page.set_default_timeout(10000);page.on('pageerror',lambda e:errors.append(str(e)))
  response=page.goto(BASE)
  assert response.status==200
@@ -16,7 +17,7 @@ with sync_playwright() as p:
  assert 'Disallow: /' in ctx.request.get(BASE+'/robots.txt').text()
  assert ctx.request.get(BASE+'/credits.html').status==200
  results.append('Worker serves preview; noindex; POST rejected; robots; credits')
- page.locator('[data-enter]').first.click();page.locator('#preview-password').fill(password);page.locator('#login-submit').click();expect(page).to_have_url(BASE+'/members/#/members')
+ page.locator('[data-enter]').first.click();require_page_origin(page,BASE);page.locator('#preview-password').fill(password);page.locator('#login-submit').click();expect(page).to_have_url(BASE+'/members/#/members')
  expect(page.locator('h1')).to_contain_text('大衛團')
  page.locator('[data-enter]').click();page.locator('#unit').select_option('以諾團');page.locator('#enter-demo').click()
  expect(page.locator('h1')).to_contain_text('以諾團')

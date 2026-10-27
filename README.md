@@ -15,7 +15,7 @@
 
 ## 臨時登入
 
-肢體專區的 HTML 和程式檔由 Worker 驗證 session 後提供。正確密碼換取有效 8 小時的 HttpOnly、Secure、SameSite=Strict cookie。可登出；更換密碼雜湊會令既有 session 失效。登入有 Cloudflare 每個位置的速率限制，並非全域精確鎖定。
+肢體專區的 HTML 和程式檔由 Worker 驗證 session 後提供。正確密碼換取有效 8 小時的 HttpOnly、Secure、SameSite=Strict cookie。每次登入另有 Durable Object 有效記錄；登出會先持久撤銷該 session，再刪除 cookie，已複製的 cookie 亦隨即失效。其他裝置的獨立登入不受影響；更換密碼雜湊會令既有 session 失效。登入有 Cloudflare 每個位置的速率限制，並非全域精確鎖定。
 
 示範單位包含「網站管理員」、傳道同工及團契。這些是展示資料分類，尚未代表正式細項權限。密碼只交給獲邀試用的人，不寫進公開 README 或 issue。
 
@@ -30,13 +30,14 @@ cp .dev.vars.example .dev.vars
 npm run dev
 ```
 
-本機網址為 `https://localhost:8787`。Wrangler 使用本機憑證；本機測試腳本只對 localhost 忽略憑證錯誤。正式網址使用 Cloudflare HTTPS。
+本機網址為 `https://localhost:8787`。Wrangler 使用本機憑證；三個瀏覽器測試腳本只對精確的 `localhost`、`127.0.0.1`、`::1` 主機忽略憑證錯誤；遠端 HTTPS 強制驗證憑證，HTTP、含帳密及路徑的測試網址會拒絕。正式網址使用 Cloudflare HTTPS。
 
 ```sh
 npm test
 npm run check
 npm run check:public
 python scripts/check-auth.py https://localhost:8787
+python scripts/check-session-revocation.py https://localhost:8787
 python scripts/check-doc-layout.py https://localhost:8787
 python scripts/check-preview.py https://localhost:8787
 ```
@@ -46,7 +47,7 @@ python scripts/check-preview.py https://localhost:8787
 ## 程式結構
 
 - `public/`：公開頁面、樣式、動態與已公開素材。這裡的每個檔案皆可公開存取。
-- `src/worker.js`、`src/auth.js`：Worker 路由、登入與 session。
+- `src/worker.js`、`src/auth.js`、`src/session-store.js`：Worker 路由、登入與可撤銷 session。`SESSIONS` 綁定 SQLite Durable Objects，每個登入只保存到期時間，登出／到期清除；不存密碼、cookie、會友或點名資料。
 - `src/member-app.txt`、`src/member-index.txt`：由 Worker bundle 載入的肢體區程式與頁面，部署端受 session 保護；repo 裡的程式本身不是秘密。
 - `public/document-content.js`、`public/documents.js`：四份原 PDF 的結構化閱讀版。
 - `preview-address/`：Pages 網址透過 Service Binding 呼叫 Worker；不公開帳戶子網域。
@@ -68,6 +69,8 @@ CI 會在 push／pull request 驗證程式、測試及公開檔案檢查。`AUTO
 部署順序為 CI → Worker → Pages → 線上檢查。最後會檢查首頁、Pages 到 Worker 的連接、匿名肢體區拒絕存取，以及四份 PDF 的瀏覽器閱讀標頭。線上檢查不需要密碼、不送聯絡表格，也不會登入肢體區。檢查失敗會標記 workflow 失敗，不會自動回滾已部署內容。
 
 缺少 token 時，部署會在寫入前停止並說明缺少憑證；不能把 CI 成功當作已部署成功。其他 fork 若要部署，須另設自己的帳戶、專案及 secrets。
+
+首次部署 `session-v1` migration 會建立 session 儲存；舊的無狀態登入沒有有效記錄，需要重新登入一次。儲存服務不可用時登入／驗證／撤銷會拒絕，不會退回只驗簽章。
 
 既有 Worker 已配置臨時登入秘密；部署 workflow 不會重設密碼。另建環境時，須在 Cloudflare Worker 的 Variables and Secrets 設定 `PREVIEW_PASSWORD_HASH` 與 `PREVIEW_SESSION_SECRET`，缺少時登入會拒絕。正式部署憑證不需要放在 Pages，因它使用 Service Binding。
 

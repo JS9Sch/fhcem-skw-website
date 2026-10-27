@@ -1,10 +1,11 @@
 from pathlib import Path
 from playwright.sync_api import sync_playwright,expect
 import json,sys,re
-BASE=sys.argv[1] if len(sys.argv)>1 else 'https://localhost:8787'
+from browser_target import browser_target, browser_context
+BASE,LOCAL_TLS=browser_target(sys.argv[1] if len(sys.argv)>1 else 'https://localhost:8787')
 OUT=Path(__file__).resolve().parents[1]/'evidence/doc-layout';errors=[]
 with sync_playwright() as p:
- b=p.chromium.launch();ctx=b.new_context(ignore_https_errors=BASE.startswith('https://localhost'),reduced_motion='reduce');page=ctx.new_page();page.on('pageerror',lambda e:errors.append(str(e)))
+ b=p.chromium.launch();ctx=browser_context(b,BASE,reduced_motion='reduce');page=ctx.new_page();page.on('pageerror',lambda e:errors.append(str(e)))
  for width,height in [(1440,1000),(390,844),(320,740)]:
   page.set_viewport_size({'width':width,'height':height})
   for slug,count in [('weather',3),('recreation',6),('weddings-funerals',3),('song-copyright',7)]:
