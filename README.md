@@ -53,9 +53,9 @@ python scripts/check-preview.py https://localhost:8787
 
 ## GitHub Actions 部署選項
 
-CI 會在 push／pull request 驗證程式、測試及公開檔案檢查。`AUTO_DEPLOY=true` 時，main 的 push 通過檢查後會部署；其他分支及 pull request 不部署。此 repo 已準備開啟自動部署，目前仍須加入下述 API token 才能執行部署。
+CI 會在 push／pull request 驗證程式、測試及公開檔案檢查。`AUTO_DEPLOY=true` 時，main 的 push 通過檢查後會部署；其他分支及 pull request 不部署。此 repo 已設定 `AUTO_DEPLOY=true` 及所需 Actions secrets；2026-10-27 已完成首次 GitHub → Worker → Pages 部署與線上驗收。
 
-首次啟用（帳戶 ID 已設定，毋須重新加入）：
+以下步驟供日後更換 token 或重新設定時使用；目前不需要重做：
 
 1. 開啟 [Cloudflare → My Profile → API Tokens](https://dash.cloudflare.com/profile/api-tokens)，按 **Create Token → Create Custom Token → Get started**。
 2. 名稱可填 `fhcem-skw-github-deploy`；加入三項帳戶權限：**Account → Workers Scripts → Edit**、**Account → Cloudflare Pages → Edit**、**Account → Account Settings → Read**。在 **Account Resources** 選 **Include → Specific account**，只選本網站的 Cloudflare 帳戶。這個專用 token 不需 DNS、Wix 或 token 管理權限。
