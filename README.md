@@ -53,14 +53,21 @@ python scripts/check-preview.py https://localhost:8787
 
 ## GitHub Actions 部署選項
 
-CI 會在 push／pull request 驗證程式、測試及公開檔案檢查。自動部署預設關閉。
+CI 會在 push／pull request 驗證程式、測試及公開檔案檢查。`AUTO_DEPLOY=true` 時，main 的 push 通過檢查後會部署；其他分支及 pull request 不部署。此 repo 已準備開啟自動部署，目前仍須加入下述 API token 才能執行部署。
 
-要開啟部署：
+首次啟用（帳戶 ID 已設定，毋須重新加入）：
 
-1. 在 Cloudflare 帳戶建立限定該帳戶、具備 Workers Scripts 編輯及 Cloudflare Pages 編輯權限的 API token。不要使用 Global API Key，也不要將本機 Wrangler OAuth token 複製過去。
-2. 在本 repo 的 **Settings → Secrets and variables → Actions → Secrets** 新增 `CLOUDFLARE_API_TOKEN`。此 repo 的 `CLOUDFLARE_ACCOUNT_ID` 已配置；若複製到另一個 repo，亦須新增該 secret。
-3. 在 **Actions → Validate and deploy preview → Run workflow** 可手動部署。先驗證，再部署 Worker 及 Pages。
-4. 若想每次 push 到 `main` 自動部署，在同一設定的 **Variables** 新增 `AUTO_DEPLOY=true`。刪除或改成 `false` 可關閉。
+1. 開啟 [Cloudflare → My Profile → API Tokens](https://dash.cloudflare.com/profile/api-tokens)，按 **Create Token → Create Custom Token → Get started**。
+2. 名稱可填 `fhcem-skw-github-deploy`；加入三項帳戶權限：**Account → Workers Scripts → Edit**、**Account → Cloudflare Pages → Edit**、**Account → Account Settings → Read**。在 **Account Resources** 選 **Include → Specific account**，只選本網站的 Cloudflare 帳戶。這個專用 token 不需 DNS、Wix 或 token 管理權限。
+3. GitHub hosted runner 的 IP 會變動，不設定固定 Client IP 篩選。選擇合適到期日，按 **Continue to summary → Create Token**。複製新 token；Cloudflare 只會顯示一次。
+4. 開啟 [此 repo 的 Actions Secrets](https://github.com/JS9Sch/fhcem-skw-website/settings/secrets/actions)，按 **New repository secret**。Name 填 `CLOUDFLARE_API_TOKEN`，Secret 貼上 token，按 **Add secret**。不要將 token 貼在聊天、issue、程式或截圖中。不要使用 Global API Key 或複製本機 Wrangler OAuth token。
+5. 開啟 [Validate and deploy preview](https://github.com/JS9Sch/fhcem-skw-website/actions/workflows/deploy.yml)，按 **Run workflow → main → Run workflow** 驗證第一次部署。新增 secret 本身不會觸發 workflow。
+
+`CLOUDFLARE_ACCOUNT_ID` 已配置為 secret。自動部署的開關在 [Actions Variables](https://github.com/JS9Sch/fhcem-skw-website/settings/variables/actions)：`AUTO_DEPLOY=true` 開啟；改成 `false` 或刪除即關閉。手動 Run workflow 仍可部署 main。
+
+部署順序為 CI → Worker → Pages → 線上檢查。最後會檢查首頁、Pages 到 Worker 的連接、匿名肢體區拒絕存取，以及四份 PDF 的瀏覽器閱讀標頭。線上檢查不需要密碼、不送聯絡表格，也不會登入肢體區。檢查失敗會標記 workflow 失敗，不會自動回滾已部署內容。
+
+缺少 token 時，部署會在寫入前停止並說明缺少憑證；不能把 CI 成功當作已部署成功。其他 fork 若要部署，須另設自己的帳戶、專案及 secrets。
 
 既有 Worker 已配置臨時登入秘密；部署 workflow 不會重設密碼。另建環境時，須在 Cloudflare Worker 的 Variables and Secrets 設定 `PREVIEW_PASSWORD_HASH` 與 `PREVIEW_SESSION_SECRET`，缺少時登入會拒絕。正式部署憑證不需要放在 Pages，因它使用 Service Binding。
 
