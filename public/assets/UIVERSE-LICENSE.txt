@@ -2,6 +2,19 @@ MIT License
 
 Copyright (c) 2023 Uiverse.io
 
+Adapted component authors and sources:
+Copyright - 2026 satyamchaudharydev (satyam)
+Source: https://uiverse.io/satyamchaudharydev/slippery-parrot-22
+Copyright - 2026 nathAd17 (nathan ady)
+Source: https://uiverse.io/nathAd17/heavy-warthog-57
+Copyright - 2026 ErzenXz (Erzen Krasniqi)
+Source: https://uiverse.io/ErzenXz/weak-falcon-28
+Copyright - 2026 WhiteNervosa (WhiteNervosa)
+Source: https://uiverse.io/WhiteNervosa/wicked-deer-90
+
+Earlier Galaxy components: cssbuttons-io/friendly-dragon-76,
+Alaner-xs/white-parrot-57. All above components are provided under MIT.
+
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
 in the Software without restriction, including without limitation the rights

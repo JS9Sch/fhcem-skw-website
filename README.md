@@ -40,6 +40,7 @@ python scripts/check-auth.py https://localhost:8787
 python scripts/check-session-revocation.py https://localhost:8787
 python scripts/check-resources.py https://localhost:8787
 python scripts/check-doc-layout.py https://localhost:8787
+python scripts/check-ui-controls.py https://localhost:8787
 python scripts/check-preview.py https://localhost:8787
 ```
 
@@ -94,3 +95,9 @@ secret 的 JSON 結構為 `sermons: {url, embedUrl, tabs: [{label, url}]}` 及 `
 站內登入只保護這個網站提供的入口；已取得的 Google URL 是否能直接開啟，仍取決於 Google 原有分享設定。嵌入不是媒體備份，也不保證舊連結或錄音仍可播放。手機可在表格內左右滑動，或另開 Google 閱讀。
 
 `check-resources.py` 的第三方 Google iframe 一律驗證 TLS。本機開發的憑證例外只用於固定本機 origin 的獨立傳輸；輸入密碼的 API 請求不跟隨轉址。腳本檢查匿名／登出重放、實際表格、年份切換、失敗重試和三種畫面尺寸；證據留在忽略版本控制的 `evidence/resources/`。
+
+## 介面元件
+
+搜尋欄、主要入口箭嘴、動態開關及點名分段控制改編自 Uiverse，作者和原始連結列於 `/credits.html`，完整 MIT 授權位於 `/assets/UIVERSE-LICENSE.txt`。使用原生 HTML/CSS/JavaScript，沒有新增 UI 套件。動態可手動關閉，並尊重系統的減少動態設定。
+
+`check-ui-controls.py` 驗證三種尺寸的搜尋清除／分類保留、鍵盤操作、點名互斥與儲存、動態偏好、導覽及橫向溢出；只使用示範資料，截圖保存在忽略版本控制的 `evidence/uiverse-ui/`。
