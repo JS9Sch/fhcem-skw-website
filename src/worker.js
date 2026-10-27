@@ -1,5 +1,6 @@
 import memberScript from './member-app.txt';
 import memberHTML from './member-index.txt';
+import { memberResources } from './member-resources.js';
 import { configured, passwordMatches, sessionCookie, clearCookie, authenticated, revokeSession, SessionStorageUnavailable } from './auth.js';
 export { PreviewSession } from './session-store.js';
 const legacyRoutes = {
@@ -46,6 +47,7 @@ async function handle(request, env) {
  }
  if(request.method!=='GET'&&request.method!=='HEAD')return json({error:'method_not_allowed'},405);
  if(path==='/api/session')return json({authenticated:await authenticated(request,env)});
+ if(path==='/api/member-resources')return memberResources(request,env);
  if(path.startsWith('/api/'))return json({error:'not_found'},404);
  if(path==='/members'||path.startsWith('/members/')) {
   if(!await authenticated(request,env)) {
@@ -72,6 +74,7 @@ export default {async fetch(request,env){
  response.headers.set('X-Robots-Tag','noindex, nofollow, noarchive');
  response.headers.set('X-Content-Type-Options','nosniff');
  response.headers.set('Referrer-Policy','no-referrer');
- response.headers.set('Content-Security-Policy',"default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'");
+ const memberPage = ['/members','/members/','/members/index.html'].includes(new URL(request.url).pathname) && response.status === 200;
+ response.headers.set('Content-Security-Policy',"default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; frame-src " + (memberPage ? 'https://docs.google.com' : "'none'"));
  return response;
 }};

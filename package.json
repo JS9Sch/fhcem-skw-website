@@ -5,9 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "wrangler dev --port 8787 --local-protocol https",
-    "check": "node --check public/app.js && node --check public/public-pages.js && node --check public/documents.js && node --check public/document-content.js && node --check public/motion.js && node --check src/auth.js && node --check < src/member-app.txt && wrangler deploy --dry-run",
+    "check": "node --check public/app.js && node --check public/public-pages.js && node --check public/documents.js && node --check public/document-content.js && node --check public/motion.js && node --check src/auth.js && node --check src/member-resources.js && node --check < src/member-app.txt && wrangler deploy --dry-run",
     "deploy": "wrangler deploy",
-    "test": "node --test scripts/auth.test.mjs && python3 -m unittest discover -s scripts -p 'test_*.py'",
+    "test": "node --test scripts/*.test.mjs && python3 -m unittest discover -s scripts -p 'test_*.py'",
     "check:public": "node scripts/check-public.mjs"
   },
   "devDependencies": {

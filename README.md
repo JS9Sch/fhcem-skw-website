@@ -2,7 +2,7 @@
 
 [開啟展示網站](https://fhcem-skw-preview.pages.dev)
 
-供教會評閱的互動原型：公開教會資訊、聚會時間、通告站內閱讀及 PDF 瀏覽；肢體專區有示範點名、詩歌簡報及房間預約。
+供教會評閱的互動原型：公開教會資訊、聚會時間、通告站內閱讀及 PDF 瀏覽；肢體專區有原 Google 講道表格及資料入口，另有示範點名、詩歌簡報及房間預約。
 
 ## 公開與私人資料
 
@@ -30,7 +30,7 @@ cp .dev.vars.example .dev.vars
 npm run dev
 ```
 
-本機網址為 `https://localhost:8787`。Wrangler 使用本機憑證；三個瀏覽器測試腳本只對精確的 `localhost`、`127.0.0.1`、`::1` 主機忽略憑證錯誤；遠端 HTTPS 強制驗證憑證，HTTP、含帳密及路徑的測試網址會拒絕。正式網址使用 Cloudflare HTTPS。
+本機網址為 `https://localhost:8787`。Wrangler 使用本機憑證；瀏覽器測試腳本只對精確的 `localhost`、`127.0.0.1`、`::1` 主機忽略憑證錯誤；遠端 HTTPS 強制驗證憑證，HTTP、含帳密及路徑的測試網址會拒絕。正式網址使用 Cloudflare HTTPS。
 
 ```sh
 npm test
@@ -38,6 +38,7 @@ npm run check
 npm run check:public
 python scripts/check-auth.py https://localhost:8787
 python scripts/check-session-revocation.py https://localhost:8787
+python scripts/check-resources.py https://localhost:8787
 python scripts/check-doc-layout.py https://localhost:8787
 python scripts/check-preview.py https://localhost:8787
 ```
@@ -80,6 +81,16 @@ CI 會在 push／pull request 驗證程式、測試及公開檔案檢查。`AUTO
 
 公開內容按 2026-10-27 原站盤點搬入，沒有原站或 Wix 圖片服務的載入依賴。2011 年文件及 2023 年疫情通告清楚標明歷史性質；現行條款、價格、人事與聚會安排仍需教會確認。活動圖片原頁沒有日期或名稱，沒有補造活動。
 
-聯絡表格只驗證欄位，不送出。內部週刊、月訊、私人講道、相簿及原始會友資料沒有加入。Wix 和正式 DNS 未改動。
+聯絡表格只驗證欄位，不送出。講道集在登入後嵌入原 Google 表格，可選年份並另開 Google；週刊、月訊及相片索引提供原入口。週刊／月訊仍需獲授權的 Google 帳戶；相片索引中的舊相簿連結已失效，原檔待整理。沒有複製內部文件或錄音，也沒有更改 Google 分享設定。Wix 和正式 DNS 未改動。
 
 第三方元件授權見 `public/assets/*LICENSE*` 和站內「元件來源」。教會照片、文件及文字不包含在第三方套件的 MIT 授權內。
+
+## Google 肢體資源設定
+
+原來源 URL 只存於 Worker 的 `MEMBER_RESOURCES` secret，不寫進公開 repo、HTML 或前端程式。`GET /api/member-resources` 在驗證可撤銷 session 後提供資料，所有回應均 `no-store`；匿名／已登出 session 回 401，設定缺少或不符格式回 503。只有受保護的肢體 HTML 允許嵌入 `docs.google.com`；其他頁面仍禁止 iframe。
+
+secret 的 JSON 結構為 `sermons: {url, embedUrl, tabs: [{label, url}]}` 及 `weekly: {url}`、`monthly: {url}`、`photos: {url}`。入口只接受 HTTPS 的 `docs.google.com`／`drive.google.com`，iframe 只接受已發佈的 Google Sheets URL。原站提供的來源已配置；Google 的 resource key 會保留。新環境可在 Cloudflare Worker → Settings → Variables and Secrets 加入此 secret，或使用 `wrangler secret put MEMBER_RESOURCES` 的私密輸入。請勿把實際來源貼進 issue 或提交 `.dev.vars`。
+
+站內登入只保護這個網站提供的入口；已取得的 Google URL 是否能直接開啟，仍取決於 Google 原有分享設定。嵌入不是媒體備份，也不保證舊連結或錄音仍可播放。手機可在表格內左右滑動，或另開 Google 閱讀。
+
+`check-resources.py` 的第三方 Google iframe 一律驗證 TLS。本機開發的憑證例外只用於固定本機 origin 的獨立傳輸；輸入密碼的 API 請求不跟隨轉址。腳本檢查匿名／登出重放、實際表格、年份切換、失敗重試和三種畫面尺寸；證據留在忽略版本控制的 `evidence/resources/`。

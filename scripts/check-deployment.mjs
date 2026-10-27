@@ -27,6 +27,10 @@ async function verify() {
   assert.equal(memberScript.status, 401, 'Anonymous private script must be denied');
   assert.equal(memberScript.headers.get('cache-control'), 'no-store');
 
+  const resources = await get('/api/member-resources');
+  assert.equal(resources.status, 401, 'Anonymous Google source links must be denied');
+  assert.equal(resources.headers.get('cache-control'), 'no-store');
+
   for (const name of ['weather', 'recreation', 'song-copyright', 'weddings-funerals']) {
     const pdf = await get(`/documents/${name}.pdf`);
     assert.equal(pdf.status, 200, `${name} PDF`);
