@@ -104,6 +104,9 @@ try:
             expect(page).to_have_url(BASE + '/meetings/')
             assert not page.evaluate('document.documentElement.scrollWidth > innerWidth + 1')
             page.goto(BASE + '/')
+            # Room numbers in the address stay on one line (live bug 2026-11-06: each number stacked).
+            assert page.evaluate("[...document.querySelectorAll('.addr .nw')].every(e => getComputedStyle(e).display === 'inline')")
+            assert page.evaluate("(() => { const r = document.querySelector('#visit .addr .rooms'); return new Set([...r.getClientRects()].map(x => Math.round(x.top))).size === 1 })()"), width
             expect(page.locator('.hello h1')).to_be_visible()
             for section in page.locator('.reveal').all():
                 section.scroll_into_view_if_needed()
