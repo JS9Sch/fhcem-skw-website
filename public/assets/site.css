@@ -98,6 +98,10 @@ img{display:block;max-width:100%;height:auto}
 .day li.worship time,.day li.worship span{color:var(--red)}
 .day li.worship span{font-weight:700}
 .day .none{font-size:14px;color:var(--ink-soft);writing-mode:vertical-rl;letter-spacing:.3em;margin:4px auto 0}
+.week-extra{list-style:none;display:flex;flex-wrap:wrap;gap:6px 20px;padding:12px 14px;border-bottom:1px solid var(--tile-light);font-size:15px}
+.week-extra li{display:flex;align-items:baseline;gap:8px}
+.week-extra li span,.week-extra li small{color:var(--ink-soft)}
+.week-extra li small{font-size:13px}
 .weeknote{display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px;margin-top:22px;font-size:14px;color:var(--ink-soft)}
 .weeknote .key::before{content:"";display:inline-block;width:10px;height:10px;background:var(--red);margin-right:8px;vertical-align:1px}
 
@@ -287,6 +291,7 @@ details.bus h4{font-size:15px;font-weight:700;margin:16px 0 8px;letter-spacing:.
 .btn .ext,.link .ext,.pdfs .ext{width:15px;height:15px;flex:none}
 button.btn{border:0;font:inherit;font-weight:700;cursor:pointer}
 .tag{white-space:nowrap}
+.nw{white-space:nowrap}
 .draft{margin-top:22px;font-size:14px;color:var(--ink-soft);display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}
 .draft .tag{margin-left:0;border-color:var(--red);color:var(--red)}
 .src .link{margin-left:6px}
@@ -422,9 +427,6 @@ button.btn{border:0;font:inherit;font-weight:700;cursor:pointer}
 .staff div{display:grid;grid-template-columns:5em 1fr;gap:12px;padding:12px 0;border-bottom:1px solid var(--tile-light);align-items:baseline}
 .staff dt{font-size:14px;color:var(--ink-soft);letter-spacing:.12em}
 .staff dd{font-family:var(--sung);font-weight:700;font-size:20px}
-.email-note{border:1.5px solid var(--ink);border-radius:3px;padding:14px 18px}
-.email-note summary{cursor:pointer;font-weight:700}
-.email-note p{margin-top:8px;color:var(--ink-soft)}
 .contact-form,.login{max-width:560px;display:grid;gap:18px}
 .form-note{font-size:14px;color:var(--ink-soft);display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}
 .form-note .tag{margin:0;border-color:var(--red);color:var(--red)}
@@ -469,14 +471,7 @@ button.btn{border:0;font:inherit;font-weight:700;cursor:pointer}
 .field input:focus ~ label,.field textarea:focus ~ label,.field input:not(:placeholder-shown) ~ label,.field textarea:not(:placeholder-shown) ~ label{transform:translateY(-22px) scale(.84);background:var(--plaster);color:var(--ink)}
 .field [aria-invalid="true"]{border-color:var(--red)}
 .field .err{display:block;margin-top:4px}
-/* Tooltip: G4b413l/dry-turtle-84. Opens on hover, keyboard focus or tap; Escape closes. */
-.tip{position:relative;display:inline-block}
-.tip-btn{font:inherit;font-size:12px;background:none;cursor:help;line-height:1.5}
-.tip-text{position:absolute;bottom:calc(100% + 10px);right:-6px;width:max-content;max-width:min(240px,70vw);background:var(--ink);color:var(--plaster);font-size:13px;font-weight:400;line-height:1.6;padding:8px 10px;border-radius:3px;visibility:hidden;opacity:0;transition:opacity .2s ease;z-index:5;text-align:left}
-.tip-text::after{content:"";position:absolute;top:100%;right:18px;border:6px solid transparent;border-top-color:var(--ink)}
-.tip:hover .tip-text,.tip-btn:focus-visible + .tip-text,.tip.open .tip-text{visibility:visible;opacity:1}
-.tip.dismissed .tip-text{visibility:hidden;opacity:0}
-@media (prefers-reduced-motion:reduce){.field input,.field textarea,.field label,.pill span,.tip-text{transition:none}}
+@media (prefers-reduced-motion:reduce){.field input,.field textarea,.field label,.pill span{transition:none}}
 
 /* ---------- responsive ---------- */
 @media (max-width:1080px){

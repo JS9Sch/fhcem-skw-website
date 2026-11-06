@@ -10,7 +10,6 @@ Components from https://github.com/uiverse-io/galaxy adapted for this website
 - Alaner-xs/white-parrot-57  https://uiverse.io/Alaner-xs/white-parrot-57
 - Yaya12085/rude-mouse-79  https://uiverse.io/Yaya12085/rude-mouse-79
 - alexruix/slippery-snail-18  https://uiverse.io/alexruix/slippery-snail-18
-- G4b413l/dry-turtle-84  https://uiverse.io/G4b413l/dry-turtle-84
 - AqFox/silent-quail-21  https://uiverse.io/AqFox/silent-quail-21
 Each component is copyright its author and provided under the MIT License below.
 

@@ -74,16 +74,15 @@ try:
             first = page.locator('.filter input[type=radio]').first
             first.focus(); first.press('ArrowRight')
             expect(page.locator('.filter input[value="崇拜"]')).to_be_checked()
-            expect(page.locator('#week-grid li[data-cat]:visible')).to_have_count(3)
-            expect(page.locator('.filter-status')).to_contain_text('3')
+            # 崇拜: 主日崇拜, 週六晚崇拜, 幼兒崇拜, 詩班練詩 (2026-10-25 主日報告).
+            expect(page.locator('#week-grid li[data-cat]:visible')).to_have_count(4)
+            expect(page.locator('.filter-status')).to_contain_text('4')
             page.goto(BASE + '/meetings/?cat=' + quote('團契'))
             expect(page.locator('.filter input[value="團契"]')).to_be_checked()
             expect(page.locator('#week-grid li[data-cat="崇拜"]:visible')).to_have_count(0)
-            # Tooltip (Uiverse G4b413l): opens on keyboard focus, Escape hides it without moving focus.
+            # Meetings without a fixed day (青年主日學) sit under the grid and follow the filter too.
+            expect(page.locator('#week-grid-extra li[data-cat="學習"]')).to_be_hidden()
             page.goto(BASE + '/contact/')
-            tip = page.locator('#reach .tip-btn'); tip.focus()
-            expect(page.locator('#tip-email')).to_be_visible()
-            page.keyboard.press('Escape'); expect(page.locator('#tip-email')).to_be_hidden(); expect(tip).to_be_focused()
             # Floating-label form (Uiverse alexruix): checks fields, never sends.
             page.locator('#contact-form button[type=submit]').click()
             expect(page.locator('#e-name')).to_contain_text('請填寫姓名')
@@ -107,7 +106,7 @@ try:
             page.screenshot(path=str(OUT / f'home-{width}.png'), full_page=True, animations="disabled")
             assert ctx.request.post(BASE + '/api/logout', headers={'Origin': BASE}, max_redirects=0).ok
             ctx.close()
-            checks.append(f'{width}×{height}: search/clear/filter, exclusive attendance/save, category tabs, tooltip, form check, CTA navigation, reveals, no overflow')
+            checks.append(f'{width}×{height}: search/clear/filter, exclusive attendance/save, category tabs, form check, CTA navigation, reveals, no overflow')
         browser.close()
     assert not errors, errors
     result = {'base': BASE, 'checks': checks, 'pageErrors': errors}

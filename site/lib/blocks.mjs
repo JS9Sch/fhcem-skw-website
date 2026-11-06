@@ -1,7 +1,7 @@
 // Blocks shared by the homepage and inner pages.
 import { readFileSync } from 'node:fs';
 import content from '../data/content.mjs';
-import { esc, arrow, external, CHURCH } from './layout.mjs';
+import { esc, arrow, external, CHURCH, addressHtml } from './layout.mjs';
 import { STOPS, EAST, WEST, TERMINUS, NIGHT, SPECIAL } from '../data/bus.mjs';
 
 const route = r => `<li${NIGHT.includes(r) ? ' class="night"' : SPECIAL.includes(r) ? ' class="special"' : ''}><b>${r}</b>${NIGHT.includes(r) ? '<small>通宵</small>' : SPECIAL.includes(r) ? '<small>特別班</small>' : ''}</li>`;
@@ -23,7 +23,7 @@ function busBlock(open) {
 const DAYS = [['星期日', '日', '主日'], ['星期一', '一'], ['星期二', '二'], ['星期三', '三'], ['星期四', '四'], ['星期五', '五'], ['星期六', '六']];
 export const MAIN_WORSHIP = ['主日崇拜', '週六晚崇拜'];
 
-// The original wording of each meeting time, keyed by meeting name.
+// The wording of each meeting time as printed in the Sunday report, keyed by meeting name.
 export const originalTimes = (() => {
   const text = content.meetingsOriginal.replace(/^聚會時間表\s*/, '').replace(/[ \t]*\n?[ \t]*：[ \t]*\n?[ \t]*/g, '：');
   const map = {};
@@ -44,7 +44,9 @@ export function weekGrid({ id = '' } = {}) {
       : '<p class="none">沒有恆常聚會</p>';
     return `<div class="day" role="listitem"><h3><span class="vh">${day}</span><span aria-hidden="true">${short}</span>${sub ? `<small aria-hidden="true">${sub}</small>` : ''}</h3>${list}</div>`;
   });
-  return `<div class="week reveal" role="list"${id ? ` id="${id}"` : ''}>${cols.join('')}</div>`;
+  const loose = meetings.filter(m => !m.day);
+  const extra = loose.length ? `<ul class="week-extra reveal"${id ? ` id="${id}-extra"` : ''}>${loose.map(m => `<li data-cat="${m.category}"><span>另有</span><b>${esc(m.name)}</b><small>${esc(m.note)}</small></li>`).join('')}</ul>` : '';
+  return `<div class="week reveal" role="list"${id ? ` id="${id}"` : ''}>${cols.join('')}</div>${extra}`;
 }
 
 // Home page summary: only the two main services; the full timetable lives on /meetings/.
@@ -58,16 +60,16 @@ export const mapSvg = readFileSync(new URL('./map.svg', import.meta.url), 'utf8'
 
 export function factsBlock({ address = false } = {}) {
   return `<dl class="facts">${address ? `
-    <div><dt>地址</dt><dd>${CHURCH.address}</dd></div>` : ''}
+    <div><dt>地址</dt><dd>${addressHtml()}</dd></div>` : ''}
     <div><dt>電話</dt><dd><a href="tel:${CHURCH.tel}">${CHURCH.phone}</a></dd></div>
-    <div><dt>傳真</dt><dd>${CHURCH.fax}</dd></div>
-    <div><dt>電郵</dt><dd>${CHURCH.email}<span class="tip"><button type="button" class="tag tip-btn" aria-describedby="tip-email" aria-expanded="false">待核對</button><span class="tip-text" role="tooltip" id="tip-email">原網站顯示的電郵與寄信連結不一致，請先致電確認。</span></span></dd></div>
+    <div><dt>WhatsApp</dt><dd><a href="${CHURCH.whatsapp}" target="_blank" rel="noopener">${CHURCH.phone}<span class="vh">（在新分頁開啟 WhatsApp）</span></a></dd></div>
+    <div><dt>電郵</dt><dd><a href="mailto:${CHURCH.email}">${CHURCH.email}</a></dd></div>
   </dl>`;
 }
 
 export function addressBlock({ headingLevel = 'p' } = {}) {
   const tag = headingLevel;
-  return `<${tag} class="addr">筲箕灣道 334–336 號<span>華寶商業中心 2 樓 205–209 室</span></${tag}>
+  return `<${tag} class="addr">筲箕灣道 334–346 號<span>華寶商業中心 2 樓 <span class="nw">202–203</span>、<span class="nw">205–209</span> 室</span></${tag}>
   <p class="landmark">地下是<b>香港賽馬會</b>。大廈入口在賽馬會<b>左邊</b>（門上寫「華寶商業中心」），乘升降機到 <b>2 樓</b>。門前就是電車站「南康街」。</p>
   ${factsBlock()}`;
 }

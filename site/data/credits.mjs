@@ -7,6 +7,5 @@ export const UIVERSE = [
   { name: '勾選框', use: '肢體專區選擇詩歌', author: 'Alaner-xs', url: 'https://uiverse.io/Alaner-xs/white-parrot-57' },
   { name: '分類選項', use: '聚會時間頁按類別篩選', author: 'Yaya12085', url: 'https://uiverse.io/Yaya12085/rude-mouse-79' },
   { name: '浮動標籤輸入欄', use: '聯絡表格及登入', author: 'alexruix', url: 'https://uiverse.io/alexruix/slippery-snail-18' },
-  { name: '提示框', use: '解釋「待核對」項目', author: 'G4b413l', url: 'https://uiverse.io/G4b413l/dry-turtle-84' },
   { name: '載入動畫', use: '讀取講道資源時顯示', author: 'AqFox', url: 'https://uiverse.io/AqFox/silent-quail-21' },
 ];
