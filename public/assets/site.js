@@ -21,23 +21,11 @@
     document.addEventListener('click', e => { if (menu.open && !menu.contains(e.target)) menu.open = false; });
   }
 
-  // Tooltips ("待核對"): tap or Enter toggles, Escape or a tap elsewhere closes.
-  const tips = $$('.tip');
-  const closeTips = except => tips.forEach(t => { if (t !== except) { t.classList.remove('open'); $('.tip-btn', t).setAttribute('aria-expanded', 'false'); } });
-  tips.forEach(t => $('.tip-btn', t).addEventListener('click', e => {
-    e.stopPropagation(); const open = !t.classList.contains('open'); closeTips(t);
-    t.classList.toggle('open', open); e.currentTarget.setAttribute('aria-expanded', String(open));
-  }));
-  if (tips.length) {
-    document.addEventListener('click', () => closeTips());
-    document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeTips(); tips.forEach(t => t.classList.add('dismissed')); } });
-    tips.forEach(t => { t.addEventListener('focusout', () => t.classList.remove('dismissed')); t.addEventListener('mouseleave', () => t.classList.remove('dismissed')); });
-  }
 
   // Meetings: filter the week grid by category; /meetings/?cat=團契 preselects a category.
   const filter = $('.filter');
   if (filter) {
-    const items = $$('#week-grid li[data-cat]'), days = $$('#week-grid .day'), status = $('.filter-status');
+    const items = $$('#week-grid li[data-cat], #week-grid-extra li[data-cat]'), days = $$('#week-grid .day'), status = $('.filter-status');
     const apply = cat => {
       let n = 0;
       items.forEach(li => { const show = !cat || li.dataset.cat === cat; li.hidden = !show; if (show) n++; });

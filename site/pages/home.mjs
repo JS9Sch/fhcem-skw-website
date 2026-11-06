@@ -19,7 +19,7 @@ export default function home() {
     <div class="hero-row">
       <div class="hello">
         <h1 id="hello">主日上午十時半，<br><em>二樓</em>見。</h1>
-        <p><strong>筲箕灣道 334–336 號華寶商業中心 2 樓。</strong>第一次來，也歡迎你和我們一同敬拜。</p>
+        <p><strong>筲箕灣道 334–346 號華寶商業中心 2 樓。</strong>第一次來，也歡迎你和我們一同敬拜。</p>
         <div class="cta">
           <a class="btn" href="/meetings/">看聚會時間 ${arrow}</a>
           <a class="link" href="#visit">怎樣來</a>
@@ -77,5 +77,5 @@ export default function home() {
     </div>
   </div>
 </section>`;
-  return page({ path: '/', title: '主頁', description: '信望愛福音會筲箕灣堂：主日上午十時半崇拜，筲箕灣道 334–336 號華寶商業中心 2 樓。聚會時間、交通及教會通告。', body, bodyClass: 'home' });
+  return page({ path: '/', title: '主頁', description: '信望愛福音會筲箕灣堂：主日上午十時半崇拜，筲箕灣道 334–346 號華寶商業中心 2 樓。聚會時間、交通及教會通告。', body, bodyClass: 'home' });
 }

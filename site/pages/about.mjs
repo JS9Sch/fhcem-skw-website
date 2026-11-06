@@ -84,6 +84,6 @@ export function churchesPage() {
   };
   const body = pagehead({ crumbs: CRUMB, title: '其他堂會', lead: '信望愛福音會另有兩間堂會。' }) +
     sec({ id: 'churches', label: '堂會', body: `<div class="church-grid">${list.map(card).join('')}</div>
-      <p class="mission reveal">${esc(mission.replace(/『|』/g, ''))}</p>${sourceNote}` });
+      <p class="mission reveal">${esc(mission.replace(/『|』/g, ''))}</p><p class="src">地址、電話及同工按 2026 年 10 月 25 日主日報告整理；崇拜時間沿用原網站。以各堂最新公布為準。</p>` });
   return page({ path: '/about/churches/', title: '其他堂會', description: '信望愛福音會旺角堂及北角堂的地址、電話及崇拜時間。', body });
 }
