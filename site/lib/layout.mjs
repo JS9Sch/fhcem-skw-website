@@ -105,4 +105,5 @@ export const draft = (text = '本段文字為新網站草稿，待教會審閱�
 // Address with number ranges kept on one line ("205–209" must not break after the dash).
 export const addressHtml = () => CHURCH.address.replace(/(\d+–\d+)/g, '<span class="nw">$1</span>');
 export const reportNote = '<p class="src">按 2026 年 10 月 25 日主日報告整理；以教會最新公布為準。</p>';
+export const scheduleNote = '<p class="src">按教會 2026–2027 年度聚會時間表整理；以教會最新公布為準。</p>';
 export const sourceNote = '<p class="src">內容按教會原網站（2026 年 10 月存檔）整理；人事、地址及聚會安排以教會最新公布為準。</p>';

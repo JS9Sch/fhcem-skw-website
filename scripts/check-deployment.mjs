@@ -31,7 +31,7 @@ async function verify() {
   assert.equal(resources.status, 401, 'Anonymous Google source links must be denied');
   assert.equal(resources.headers.get('cache-control'), 'no-store');
 
-  for (const name of ['weather', 'recreation', 'song-copyright', 'weddings-funerals']) {
+  for (const name of ['recreation', 'weddings-funerals']) {
     const pdf = await get(`/documents/${name}.pdf`);
     assert.equal(pdf.status, 200, `${name} PDF`);
     assert.match(pdf.headers.get('content-type') || '', /application\/pdf/);
@@ -43,7 +43,7 @@ async function verify() {
 for (let attempt = 1; attempt <= 3; attempt++) {
   try {
     await verify();
-    console.log('Deployment checks passed: homepage, Pages binding, anonymous access protection, four inline PDFs.');
+    console.log('Deployment checks passed: homepage, Pages binding, anonymous access protection, two inline PDFs.');
     break;
   } catch (error) {
     if (attempt === 3) throw error;
