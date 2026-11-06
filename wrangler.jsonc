@@ -12,9 +12,7 @@
     {
       "binding": "ATT_DB",
       "database_name": "fhcem-skw-attendance",
-      // PLACEHOLDER: replaced at deploy with the id from `wrangler d1 create fhcem-skw-attendance`.
-      // Local `wrangler dev` and `--dry-run` work with this value; a real deploy does not.
-      "database_id": "00000000-0000-0000-0000-000000000000",
+      "database_id": "10e04db1-31ae-4c71-873e-1b9d393ca041",
       "migrations_dir": "migrations"
     }
   ],
