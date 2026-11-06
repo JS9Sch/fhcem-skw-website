@@ -3,3 +3,5 @@ PREVIEW_PASSWORD_HASH=REPLACE_WITH_64_CHARACTER_SHA256_HEX
 PREVIEW_SESSION_SECRET=REPLACE_WITH_RANDOM_64_CHARACTER_SECRET
 # Attendance admin code hash ("<salt hex>:<hash hex>"): see scripts/attendance-hash.mjs
 ATTENDANCE_ADMIN_CODE_HASH=
+# LOCAL ONLY: 詩歌庫 uses a fake Drive in the local D1 (never set this on Cloudflare)
+# SONGS_FAKE_DRIVE=1

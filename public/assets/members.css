@@ -268,3 +268,81 @@
 /* Link-only phones: the roll call alone, no member menu. */
 .workspace.link-workspace .work-main{max-width:980px;margin:0 auto}
 @media (prefers-reduced-motion:reduce){.workspace .att-btn,.workspace .att-step{transition:none}.workspace .att-mark-state[data-s=saved]{animation:none}}
+/* 詩歌庫 (sheet-music library): list, song page, upload and Drive admin. Same tokens as 點名. */
+.workspace .sg-tabs{margin-bottom:18px}
+.workspace .sg-notice{display:flex;gap:8px;align-items:baseline;font-size:14px;color:var(--ink);padding:10px 14px;border-left:4px solid var(--red);background:rgba(255,255,255,.55);margin:0 0 18px}
+.workspace .sg-notice::before{content:"©";font-weight:700;color:var(--red)}
+.workspace .sg-toolbar{margin-bottom:12px}
+.workspace .sg-show{margin:0 0 10px}
+.workspace .sg-show button,.workspace .sg-kind button{min-height:44px;padding:6px 16px;font-size:14px;color:var(--ink);border:1.5px solid var(--ink-soft);border-radius:3px;cursor:pointer}
+.workspace .sg-show button[aria-pressed=true],.workspace .sg-kind button[aria-pressed=true]{background:var(--ink);color:var(--plaster);border-color:var(--ink)}
+.workspace .sg-count{font-size:13px;color:var(--ink-soft);margin:0 0 8px}
+.workspace .sg-list{list-style:none;margin:0;padding:0;border-top:2px solid var(--ink)}
+.workspace .sg-list li{border-bottom:1px solid var(--tile-light)}
+.workspace .sg-item{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:56px;padding:10px 6px;color:var(--ink);text-decoration:none}
+.workspace .sg-item:hover{background:rgba(255,255,255,.5)}
+.workspace .sg-item:hover b{color:var(--red)}
+.workspace .sg-item:focus-visible{outline:3px solid var(--ink);outline-offset:-3px}
+.workspace .sg-name{display:grid;gap:2px;min-width:0}
+.workspace .sg-name b{font-size:17px;font-weight:700;overflow-wrap:anywhere}
+.workspace .sg-en{font-size:13px;color:var(--ink-soft);overflow-wrap:anywhere}
+.workspace .sg-tags{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:4px;flex:none;max-width:45%}
+.workspace .sg-tags em{font-style:normal;font-size:12px;white-space:nowrap;padding:1px 7px;border:1px solid var(--tile);border-radius:2px;color:var(--ink-soft);background:rgba(255,255,255,.6)}
+.workspace .sg-back{margin-bottom:14px}
+.workspace .sg-title{font-family:var(--sung);font-weight:900;font-size:clamp(26px,3.4vw,38px);line-height:1.25;overflow-wrap:anywhere}
+.workspace .sg-title-en{font-size:16px;color:var(--ink-soft);margin-top:4px;overflow-wrap:anywhere}
+.workspace .sg-meta{display:grid;gap:4px;margin:14px 0}
+.workspace .sg-meta div{display:flex;gap:12px;font-size:14px}
+.workspace .sg-meta dt{font-weight:700;flex:none}
+.workspace .sg-guess{font-size:12px;border:1px dashed var(--tile);padding:0 5px;border-radius:2px;color:var(--ink-soft)}
+.workspace .sg-files{list-style:none;margin:0 0 16px;padding:0;border-top:1px solid var(--tile-light)}
+.workspace .sg-file{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px 16px;padding:14px 0;border-bottom:1px solid var(--tile-light)}
+.workspace .sg-file-text{display:grid;gap:2px}
+.workspace .sg-file-text b{font-size:17px}
+.workspace .sg-file-text small{font-size:13px;color:var(--ink-soft)}
+.workspace .sg-file-actions{display:flex;flex-wrap:wrap;gap:8px}
+.workspace .att-btn.sg-danger{border-color:var(--red);color:var(--red)}
+.workspace .sg-edit summary{cursor:pointer;font-weight:700;min-height:44px;display:flex;align-items:center}
+.workspace .sg-edit form{display:grid;gap:14px;margin-top:12px;max-width:560px}
+.workspace .sg-check{min-height:44px}
+.workspace #sg-up{display:grid;gap:18px;max-width:680px}
+.workspace .sg-chooser,.workspace .sg-set{border:0;padding:0;margin:0;min-width:0;display:grid;gap:10px}
+.workspace .sg-chooser legend,.workspace .sg-set legend{font-weight:700;font-size:16px;margin-bottom:8px;padding:0}
+.workspace .sg-set{grid-template-columns:auto minmax(0,220px);align-items:end;justify-content:start}
+.workspace .sg-set legend{grid-column:1/-1}
+.workspace .sg-choices{display:grid;gap:6px}
+.workspace .sg-choice{display:flex;align-items:center;gap:10px;min-height:48px;padding:6px 12px;border:1.5px solid var(--tile-light);border-radius:3px;background:#fff;cursor:pointer}
+.workspace .sg-choice:has(input:checked){border-color:var(--red);box-shadow:inset 4px 0 0 var(--red)}
+.workspace .sg-choice input{width:20px;height:20px;flex:none;accent-color:var(--red)}
+.workspace .sg-choice span{display:grid;gap:1px;min-width:0}
+.workspace .sg-choice small{font-size:12px;color:var(--ink-soft)}
+.workspace .sg-newsong{display:grid;gap:12px}
+.workspace .sg-newsong[hidden]{display:none}
+.workspace .sg-replace{font-size:14px;padding:10px 14px;border:1.5px dashed var(--amber,#E2A048);background:#FFF7EA;margin:0}
+.workspace .sg-replace[hidden]{display:none}
+.workspace .sg-set .sg-pick{grid-column:1/-1;justify-self:start;cursor:pointer}
+.workspace .sg-set:has(.sg-pick){grid-template-columns:1fr}
+.workspace #sg-files:focus-visible+.sg-photos,.workspace .sg-pick:focus-within{outline:3px solid var(--ink);outline-offset:3px}
+.workspace .sg-photos{list-style:none;margin:0;padding:0;display:grid;gap:4px}
+.workspace .sg-photos li{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:4px 0;border-bottom:1px solid var(--tile-light);font-size:14px}
+.workspace .sg-photos li>span:first-child{min-width:0;overflow-wrap:anywhere}
+.workspace .sg-photos small{margin-left:8px;color:var(--ink-soft)}
+.workspace .sg-photo-move{display:flex;gap:6px;flex:none}
+.workspace .sg-progress{font-size:14px;color:var(--ink-soft);min-height:1.5em;margin:0}
+.workspace .sg-ok{color:var(--green,#1D4A37)}
+.workspace .sg-scan{list-style:none;margin:0;padding:0;display:grid;gap:18px}
+.workspace .sg-scan>li{display:grid;gap:12px;padding:16px 0;border-top:1px solid var(--tile-light)}
+.workspace .sg-scan-name{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;overflow-wrap:anywhere}
+.workspace .sg-scan-name small{color:var(--ink-soft);font-size:13px}
+.workspace .sg-scan-done a{color:var(--red);text-decoration:underline}
+dialog.sg-dialog{min-height:0;background:var(--plaster);border:1.5px solid var(--ink);border-radius:3px;padding:24px;max-width:min(520px,calc(100vw - 32px))}
+dialog.sg-dialog h2{font-family:var(--sung);font-size:22px;margin-bottom:6px}
+dialog.sg-dialog .sg-pick-list{list-style:none;margin:10px 0 16px;padding:0;display:grid;gap:4px}
+dialog.sg-dialog .sg-pick-list label{min-height:44px;overflow-wrap:anywhere}
+@media(max-width:640px){
+ .workspace .sg-item{align-items:flex-start;flex-direction:column;gap:4px}
+ .workspace .sg-tags{justify-content:flex-start;max-width:none}
+ .workspace .sg-set{grid-template-columns:1fr}
+ .workspace .sg-file-actions{width:100%}
+ .workspace .sg-file-actions .att-btn{flex:1 1 auto}
+}
