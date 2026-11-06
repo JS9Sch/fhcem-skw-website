@@ -560,4 +560,6 @@ html:not(.js) .needs-js{display:none}
 }
 /* 團契點名連結 page */
 .link-open .link-status{font-size:19px;font-weight:700;margin:0 0 10px}
+.link-open{gap:8px}
+.link-open .form-note{display:block;margin:0}
 .link-open .form-note a{color:var(--red);text-decoration:underline;text-underline-offset:3px}
