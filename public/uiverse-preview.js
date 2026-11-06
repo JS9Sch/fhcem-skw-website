@@ -1,1 +1,0 @@
-document.querySelectorAll('.uiverse-demo').forEach(host=>{const content=host.querySelector('template').content.cloneNode(true);const root=host.attachShadow({mode:'open'});root.append(content);const check=root.querySelector('input');if(check)check.setAttribute('aria-label','試用 Uiverse 勾選框')});

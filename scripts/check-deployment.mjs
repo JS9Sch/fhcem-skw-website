@@ -22,7 +22,7 @@ async function verify() {
 
   const memberPage = await get('/members/');
   assert.equal(memberPage.status, 302, 'Anonymous member page must redirect');
-  assert.equal(memberPage.headers.get('location'), '/?login=1#/');
+  assert.equal(memberPage.headers.get('location'), '/login/?next=%2Fmembers%2F');
   const memberScript = await get('/members/app.js');
   assert.equal(memberScript.status, 401, 'Anonymous private script must be denied');
   assert.equal(memberScript.headers.get('cache-control'), 'no-store');

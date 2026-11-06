@@ -31,7 +31,7 @@ try:
             assert not client.get(origin + '/api/session', max_redirects=0, headers=copied).json()['authenticated'], 'Revoked session still active'
             for method in ('GET', 'HEAD'):
                 assert client.fetch(origin + '/members/app.js', method=method, headers=copied, max_redirects=0).status == 401, 'Copied token retrieves script'
-                for path in ('/members', '/members/', '/members/index.html'):
+                for path in ('/members/', '/members/resources/', '/members/index.html'):
                     assert client.fetch(origin + path, method=method, headers=copied, max_redirects=0).status == 302, 'Copied token retrieves HTML'
             assert client.get(origin + '/api/session', max_redirects=0, headers={'Cookie': tokens[1]}).json()['authenticated'], 'Independent login was revoked'
         assert clients[0][1].post(base + '/api/logout', max_redirects=0, headers={'Origin': base, 'Cookie': tokens[0]}).status == 200, 'Repeated logout failed'

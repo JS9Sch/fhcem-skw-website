@@ -44,7 +44,7 @@ try:
      google_errors.append('Google published Sheet: DOCS_timing is not defined')
     else:errors.append(re.sub(r'https?://[^\s)]+','[URL]',str(error)))
    page.on('pageerror',on_error)
-   page.goto(BASE+'/members/#/members/resources',wait_until='domcontentloaded')
+   page.goto(BASE+'/members/resources/',wait_until='domcontentloaded')
    expect(page.locator('#sermon-year')).to_be_visible()
    assert page.locator('#sermon-year option').count()==17
    assert page.locator('#sermon-frame').get_attribute('src')==sources['sermons']['embedUrl']

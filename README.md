@@ -2,7 +2,7 @@
 
 [開啟展示網站](https://fhcem-skw-preview.pages.dev)
 
-供教會評閱的互動原型：公開教會資訊、聚會時間、通告站內閱讀及 PDF 瀏覽；肢體專區有原 Google 講道表格及資料入口，另有示範點名、詩歌簡報及房間預約。
+信望愛福音會筲箕灣堂新網站（試行版，內容待教會審閱）：公開頁面有真正的網址（主頁、認識我們、聚會時間、教會活動、教會通告、聯絡我們、鳴謝及授權）；肢體專區有原 Google 講道表格及資料入口，另有開發中的點名、詩歌、房間預約及詩歌簡報工具。
 
 ## 公開與私人資料
 
@@ -33,9 +33,11 @@ npm run dev
 本機網址為 `https://localhost:8787`。Wrangler 使用本機憑證；瀏覽器測試腳本只對精確的 `localhost`、`127.0.0.1`、`::1` 主機忽略憑證錯誤；遠端 HTTPS 強制驗證憑證，HTTP、含帳密及路徑的測試網址會拒絕。正式網址使用 Cloudflare HTTPS。
 
 ```sh
+npm run build        # 由 site/ 產生 public/ 的靜態頁面
 npm test
 npm run check
 npm run check:public
+python scripts/check-pages.py https://localhost:8787 --shots --members
 python scripts/check-auth.py https://localhost:8787
 python scripts/check-session-revocation.py https://localhost:8787
 python scripts/check-resources.py https://localhost:8787
@@ -48,10 +50,11 @@ python scripts/check-preview.py https://localhost:8787
 
 ## 程式結構
 
-- `public/`：公開頁面、樣式、動態與已公開素材。這裡的每個檔案皆可公開存取。
+- `site/`：公開頁面的來源（版面、頁面、內容資料）。`npm run build` 產生 `public/**/index.html` 及 `src/member-index.txt`；產生的檔案一併提交，`npm test` 會檢查是否最新。部署流程不需另加 build 步驟。
+- `public/`：產生的公開頁面、`assets/site.css`／`site.js`、肢體專區樣式 `assets/members.css`、相片及 PDF。這裡的每個檔案皆可公開存取。
 - `src/worker.js`、`src/auth.js`、`src/session-store.js`：Worker 路由、登入與可撤銷 session。`SESSIONS` 綁定 SQLite Durable Objects，每個登入只保存到期時間，登出／到期清除；不存密碼、cookie、會友或點名資料。
 - `src/member-app.txt`、`src/member-index.txt`：由 Worker bundle 載入的肢體區程式與頁面，部署端受 session 保護；repo 裡的程式本身不是秘密。
-- `public/document-content.js`、`public/documents.js`：四份原 PDF 的結構化閱讀版。
+- `site/data/documents.mjs`：四份原 PDF 的結構化閱讀版（/notices/<slug>/）。`site/data/bus.mjs`：「怎樣來」巴士下車資料（城巴、九巴及運輸署開放數據，2026 年 11 月）。
 - `preview-address/`：Pages 網址透過 Service Binding 呼叫 Worker；不公開帳戶子網域。
 
 ## GitHub Actions 部署選項
@@ -98,6 +101,12 @@ secret 的 JSON 結構為 `sermons: {url, embedUrl, tabs: [{label, url}]}` 及 `
 
 ## 介面元件
 
-搜尋欄、主要入口箭嘴、動態開關及點名分段控制改編自 Uiverse，作者和原始連結列於 `/credits.html`，完整 MIT 授權位於 `/assets/UIVERSE-LICENSE.txt`。使用原生 HTML/CSS/JavaScript，沒有新增 UI 套件。動態可手動關閉，並尊重系統的減少動態設定。
+八個元件改編自 Uiverse Galaxy（MIT）：箭嘴按鈕、搜尋欄、點名分段選擇、勾選框、聚會分類選項、浮動標籤輸入欄、「待核對」提示框及載入動畫。作者和原始連結列於 `/credits/`，完整授權位於 `/assets/UIVERSE-LICENSE.txt`。使用原生 HTML/CSS/JavaScript，沒有新增 UI 套件。動態只在系統沒有開啟「減少動態」時播放；正式版不設動態開關。
 
-`check-ui-controls.py` 驗證三種尺寸的搜尋清除／分類保留、鍵盤操作、點名互斥與儲存、動態偏好、導覽及橫向溢出；只使用示範資料，截圖保存在忽略版本控制的 `evidence/uiverse-ui/`。
+`check-pages.py` 檢查所有公開頁面（加 `--members` 亦檢查六個肢體專區畫面）在 1440、390、320 寬的 JS 錯誤、橫向溢出、壞圖、短連結換行及減少動態；`check-ui-controls.py` 驗證搜尋、點名、分類選項、提示框、聯絡表格及主要按鈕的鍵盤操作。截圖保存在忽略版本控制的 `evidence/`。
+
+## 網址
+
+公開：`/`、`/about/`（`faith/`、`history/`、`churches/`）、`/meetings/`、`/activities/`、`/notices/`（`weather/`、`song-copyright/`、`recreation/`、`weddings-funerals/`、`covid-2023/`）、`/contact/`、`/credits/`、`/login/`。不存在的網址顯示 404 頁；舊 Wix 網址不再轉向。
+
+肢體專區：`/members/`、`/members/resources/`、`/members/attendance/`、`/members/songs/`、`/members/rooms/`、`/members/ppt/`。未登入會 302 到 `/login/?next=…`；`/members/app.js` 未登入回 401。
