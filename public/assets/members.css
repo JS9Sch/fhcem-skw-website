@@ -170,7 +170,6 @@
 .workspace .att-h-date{font-weight:500}
 .workspace .att-h-state{grid-row:2;font-size:13px;color:var(--ink-soft)}
 .workspace .att-h-state.missing{color:var(--red)}
-.workspace .att-h-state.cancelled{text-decoration:line-through}
 .workspace .att-h-total{grid-row:1/3;grid-column:2;font-weight:700;font-size:17px}
 .workspace .att-members li,.workspace .att-code-line{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:8px 12px;padding:8px 0;border-bottom:1px solid var(--tile-light)}
 .workspace .att-codes li{border-bottom:1px solid var(--tile-light)}

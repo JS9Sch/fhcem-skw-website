@@ -199,9 +199,12 @@ async function history(ctx) {
   const g = await allowedGroup(ctx, ctx.url.searchParams.get('group')), today = hkToday(ctx.now);
   const rows = (await db(ctx.env).prepare(`${MEETING_TOTALS} WHERE m.group_id = ? ORDER BY m.actual_date DESC, m.id DESC LIMIT 40`).bind(g.id).all()).results;
   const items = rows.map(m => ({ ...meetingOut(m), present: g.kind === 'fellowship' ? m.present : null, total: total(m, m.present) }));
-  // Past scheduled dates in the last 12 weeks without a record are listed as 未點名.
-  const recorded = new Set(rows.map(m => m.scheduled_date)), from = addDays(today, -84);
+  // Past scheduled dates in the last 12 weeks without a record are listed as 未點名, but only
+  // since the group started using the tool (its first meeting record or roster entry).
+  const first = await db(ctx.env).prepare('SELECT MIN(d) AS d FROM (SELECT MIN(COALESCE(scheduled_date, actual_date)) AS d FROM meetings WHERE group_id = ?1 UNION ALL SELECT MIN(substr(created_at, 1, 10)) FROM members WHERE group_id = ?1)').bind(g.id).first();
+  const recorded = new Set(rows.map(m => m.scheduled_date)), from = [addDays(today, -84), first?.d || today].sort()[1];
   let d = lastScheduled(g.rule, today);
+  if (d && d < from && !recorded.has(d)) items.push({ id: null, kind: 'regular', state: 'missing', scheduled_date: d, actual_date: d, total: null });
   while (d && d >= from) {
     if (!recorded.has(d)) items.push({ id: null, kind: 'regular', state: 'missing', scheduled_date: d, actual_date: d, total: null });
     d = lastScheduled(g.rule, addDays(d, -1));

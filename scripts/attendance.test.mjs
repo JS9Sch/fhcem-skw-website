@@ -198,6 +198,8 @@ test('permissions: a group sees only its own group; staff sees all', async () =>
   assert.equal((await a.call('GET', 'meeting?group=david')).status, 200);
   assert.equal((await a.call('GET', 'report?month=2026-10')).body.rows.length, 16);
   assert.equal((await a.call('GET', 'me')).body.staffHasCode, false);
+  // A group that has not started yet lists only 今次 as 未點名, not twelve weeks of gaps.
+  assert.deepEqual((await a.call('GET', 'history?group=david')).body.items.map(x => [x.scheduled_date, x.state]), [['2026-11-01', 'missing']]);
 });
 
 test('roll call: save, edit, reschedule, cancel, extra meetings, report, stats', async () => {
