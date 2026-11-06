@@ -293,8 +293,9 @@ async function attRoster(view,sequence){
  }));
 }
 
+const prevMonth=d=>{const y=+d.slice(0,4),m=+d.slice(5,7);return m===1?`${y-1}-12`:`${y}-${String(m-1).padStart(2,'0')}`}; // 月訊 reports last month
 async function attReport(view,sequence){
- const p=attParams(),month=/^\d{4}-\d{2}$/.test(p.get('month')||'')?p.get('month'):att.me.today.slice(0,7);
+ const p=attParams(),month=/^\d{4}-\d{2}$/.test(p.get('month')||'')?p.get('month'):prevMonth(att.me.today);
  const r=await attFetch('report?month='+month);
  if(sequence!==routeSequence)return;
  if(!r.ok){view.innerHTML=attProblem(r.data.error);return}
