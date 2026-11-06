@@ -478,10 +478,11 @@ function attSettings(view){
 // (a PDF, or up to 10 phone photos joined into one PDF in this browser), replace, delete
 // (moved to 已刪除 on Drive, never erased) and match files found by 重新掃描 Drive.
 const SONG_API='/api/songs/',SONG_NOTICE='只供本堂聚會及練習使用，請勿外傳。';
-const SONG_ERR={authentication_required:'登入已過期，請重新登入。',forbidden:'只有傳道同工或網站管理員可以修改詩歌庫。',song_not_found:'找不到這首歌。',file_not_found:'找不到這個檔案。',title_required:'請填寫中文歌名或英文歌名。',invalid_title_zh:'中文歌名要有中文字；只有英文歌名請填在「英文歌名」。',invalid_title_en:'英文歌名太長。',duplicate_title:'詩歌庫已有這首歌。',invalid_key:'調不正確。',invalid_kind:'請選樂譜或鼓譜。',not_pdf:'檔案不是 PDF。',not_image:'相片格式不支援（可用 JPEG、PNG、HEIC）。',too_large:'檔案超過 20 MB 上限。',too_many_photos:'最多 10 張相片。',drive_not_connected:'網站未連接教會的 Google Drive，請網站管理員到「管理」連接。',drive_unavailable:'Google Drive 暫時未能使用，請稍後再試。',drive_file_missing:'Google Drive 上找不到這個檔案。',already_filed:'這個檔案已在詩歌庫。',unavailable:'詩歌庫暫時未能使用，請稍後再試。',offline:'網絡未連接，請稍後再試。'};
+const SONG_ERR={authentication_required:'登入已過期，請重新登入。',forbidden:'只有傳道同工或網站管理員可以修改詩歌庫。',song_not_found:'找不到這首歌。',file_not_found:'找不到這個檔案。',title_required:'請填寫中文歌名或英文歌名。',invalid_title_zh:'中文歌名要有中文字；只有英文歌名請填在「英文歌名」。',invalid_title_en:'英文歌名太長。',duplicate_title:'詩歌庫已有這首歌。',invalid_key:'調不正確。',invalid_kind:'請選樂譜或鼓譜。',invalid_version:'版本名稱不正確（最多 16 字，不可有斜線）。',invalid_tags:'標籤不正確：最多 5 個，每個 1 至 12 字。',not_pdf:'檔案不是 PDF。',not_image:'相片格式不支援（可用 JPEG、PNG、HEIC）。',too_large:'檔案超過 20 MB 上限。',too_many_photos:'最多 10 張相片。',drive_not_connected:'網站未連接教會的 Google Drive，請網站管理員到「管理」連接。',drive_unavailable:'Google Drive 暫時未能使用，請稍後再試。',drive_file_missing:'Google Drive 上找不到這個檔案。',already_filed:'這個檔案已在詩歌庫。',unavailable:'詩歌庫暫時未能使用，請稍後再試。',offline:'網絡未連接，請稍後再試。'};
 const songErr=code=>SONG_ERR[code]||'未能完成，請稍後再試。';
 const SONG_KEYS=['C','D♭','D','E♭','E','F','F♯','G','A♭','A','B♭','B','Cm','C♯m','Dm','Em','Fm','F♯m','Gm','Am','B♭m','Bm'];
-let sg={list:null,q:'',show:'all',timer:0};
+const SONG_VERSIONS=['簡譜','鋼琴','前奏','和弦','和音'],SONG_TAGS=['只有鼓譜','其他'];
+let sg={list:null,q:'',show:'all',tag:'',timer:0};
 const sgParams=()=>new URLSearchParams(location.search);
 function sgUrl(params={}){const q=new URLSearchParams();for(const [k,v] of Object.entries(params))if(v!==''&&v!=null)q.set(k,v);const s=q.toString();return '/members/songs/'+(s?'?'+s:'')}
 async function sgFetch(path,{method='GET',body,raw,type}={}){
@@ -494,7 +495,10 @@ const sgTitle=s=>s.title_zh||s.title_en;
 const sgSub=s=>s.title_zh&&s.title_en?`<span class="sg-en" lang="en">${esc(s.title_en)}</span>`:'';
 const sgSize=n=>n>=1048576?(n/1048576).toFixed(1)+' MB':Math.max(1,Math.round(n/1024))+' KB';
 const sgDay=t=>{const d=new Date(new Date(t).getTime()+8*3600e3);return `${d.getUTCFullYear()} 年 ${d.getUTCMonth()+1} 月 ${d.getUTCDate()} 日`};
-const sgFileLabel=f=>(f.kind==='drum'?'鼓譜':'樂譜')+(f.key?`（${f.key}調）`:'');
+// Same as the Drive file name: 樂譜（G調）, 樂譜（簡譜）（G調）. 版本 '' is 標準.
+const sgVersion=v=>{const t=String(v||'').normalize('NFKC').replace(/\s+/g,' ').trim();return t==='標準'?'':t};
+const sgFileLabel=f=>(f.kind==='drum'?'鼓譜':'樂譜')+(f.version?`（${f.version}）`:'')+(f.key?`（${f.key}調）`:'');
+const sgTagChips=tags=>(tags||[]).map(t=>`<em class="sg-tag">${esc(t)}</em>`).join('');
 const sgPdfUrl=(f,s)=>`${SONG_API}pdf/${f.id}/${encodeURIComponent(sgTitle(s)+'－'+sgFileLabel(f))}.pdf`;
 function songScreen(){return workShell('songs',title('詩歌庫','樂譜及鼓譜：在手機檢視，或下載 PDF。')+'<div id="sg-root" aria-live="polite">'+attLoading()+'</div>')}
 function sgProblem(code){return `<section class="panel"><h2 class="att-h2">未能讀取</h2><p class="att-help">${songErr(code)}</p><button type="button" class="att-btn" data-sg-reload>重新讀取</button></section>`}
@@ -523,10 +527,12 @@ async function sgList(root,sequence){
  root.innerHTML=`${sgTabs(r.data.can,'')}<p class="sg-notice">${SONG_NOTICE}</p>
  <div class="toolbar sg-toolbar">${memberSearch('song-search','搜尋詩歌','輸入中文或英文歌名','清除詩歌搜尋')}</div>
  <div class="status-select sg-show" role="group" aria-label="顯示"><button type="button" data-sg-show="all" aria-pressed="${sg.show==='all'}">全部（${r.data.total}）</button><button type="button" data-sg-show="recent" aria-pressed="${sg.show==='recent'}">最近加入</button></div>
+ ${sgTagFilter(r.data.tags||[])}
  <p class="sg-count" id="sg-count" role="status"></p><ol class="sg-list" id="sg-list"></ol>`;
  const input=$('#song-search');input.value=sg.q;
  bindMemberSearch('song-search',()=>{clearTimeout(sg.timer);const q=input.value;sg.timer=setTimeout(()=>sgSearch(q,sequence),q?180:0)});
  root.querySelectorAll('[data-sg-show]').forEach(b=>b.addEventListener('click',()=>{sg.show=b.dataset.sgShow;root.querySelectorAll('[data-sg-show]').forEach(x=>x.setAttribute('aria-pressed',x===b));sgPaint(sg.q?sg.found:null)}));
+ root.querySelectorAll('[data-sg-tag]').forEach(b=>b.addEventListener('click',()=>{sg.tag=b.dataset.sgTag;root.querySelectorAll('[data-sg-tag]').forEach(x=>x.setAttribute('aria-pressed',x===b));sgPaint(sg.q?sg.found:null)}));
  if(sg.q)sgSearch(sg.q,sequence);else sgPaint(null);
 }
 async function sgSearch(q,sequence){
@@ -537,15 +543,23 @@ async function sgSearch(q,sequence){
  if(!r.ok){toast(songErr(r.data.error));return}
  sg.found=r.data.songs;sgPaint(sg.found);
 }
+// 標籤 filter: the list API already sends every song with its tags, so the page filters
+// in place (no extra request; works the same on search results and 最近加入).
+function sgTagFilter(tags){
+ if(!tags.length){sg.tag='';return ''}
+ if(sg.tag&&!tags.some(t=>t.name===sg.tag))sg.tag='';
+ return `<div class="status-select sg-show sg-tag-filter" role="group" aria-label="按標籤篩選"><span class="sg-filter-label" aria-hidden="true">標籤</span><button type="button" data-sg-tag="" aria-pressed="${!sg.tag}">不限</button>${tags.map(t=>`<button type="button" data-sg-tag="${esc(t.name)}" aria-pressed="${sg.tag===t.name}">${esc(t.name)}（${t.count}）</button>`).join('')}</div>`;
+}
 function sgRow(s){
- const tags=[...s.keys.map(k=>`${esc(k)}調`),...(s.drum?['鼓譜']:[]),...(!s.score&&!s.drum?['未有樂譜']:[])];
- return `<li><a class="sg-item" href="${sgUrl({song:s.id})}"><span class="sg-name"><b>${esc(sgTitle(s))}</b>${sgSub(s)}</span><span class="sg-tags">${tags.map(t=>`<em>${t}</em>`).join('')}</span></a></li>`;
+ const chips=[...s.keys.map(k=>`${esc(k)}調`),...(s.drum?['鼓譜']:[]),...(!s.score&&!s.drum?['未有樂譜']:[])];
+ return `<li><a class="sg-item" href="${sgUrl({song:s.id})}"><span class="sg-name"><b>${esc(sgTitle(s))}</b>${sgSub(s)}</span><span class="sg-tags">${sgTagChips(s.tags)}${chips.map(t=>`<em>${t}</em>`).join('')}</span></a></li>`;
 }
 function sgPaint(found){
  const list=$('#sg-list');if(!list)return;
- const recent=sg.show==='recent'&&!found,items=found||(recent?sg.list.recent:sg.list.songs);
- $('#sg-count').textContent=found?`找到 ${found.length} 首`:recent?'最近加入的 20 首，新的在前。':`共 ${sg.list.total} 首，中文歌名按筆劃排列，英文歌名在後。`;
- list.innerHTML=items.map(sgRow).join('')||`<li class="empty">${found?'沒有符合的詩歌，請換個關鍵字。':'詩歌庫未有歌曲。'}</li>`;
+ const recent=sg.show==='recent'&&!found,all=found||(recent?sg.list.recent:sg.list.songs),items=sg.tag?all.filter(s=>(s.tags||[]).includes(sg.tag)):all;
+ const tagNote=sg.tag?`標籤「${sg.tag}」：`:'';
+ $('#sg-count').textContent=found?`${tagNote}找到 ${items.length} 首`:recent?`${tagNote}最近加入的 20 首${sg.tag?`中有 ${items.length} 首`:''}，新的在前。`:sg.tag?`${tagNote}共 ${items.length} 首。`:`共 ${sg.list.total} 首，中文歌名按筆劃排列，英文歌名在後。`;
+ list.innerHTML=items.map(sgRow).join('')||`<li class="empty">${found?'沒有符合的詩歌，請換個關鍵字。':sg.tag?'沒有這個標籤的詩歌。':'詩歌庫未有歌曲。'}</li>`;
 }
 // ----- 歌頁 -----
 async function sgSong(root,id,sequence){
@@ -554,15 +568,17 @@ async function sgSong(root,id,sequence){
  if(!r.ok){root.innerHTML=`<p><a class="text-link sg-back" href="${sgUrl()}">← 返回歌單</a></p>`+sgProblem(r.data.error);return}
  const {song:s,files,old,can}=r.data;
  document.title=`${sgTitle(s)}・詩歌庫・信望愛福音會筲箕灣堂`;
- const fileRow=(f,isOld)=>`<li class="sg-file" data-file="${f.id}"><div class="sg-file-text"><b>${sgFileLabel(f)}</b><small>${sgSize(f.size)}・${isOld?`${sgDay(f.changed_at)} 移到舊版`:`${sgDay(f.created_at)} 加入`}${f.photos?`・由 ${f.photos} 張相片合成`:''}</small></div>
-  <div class="sg-file-actions"><a class="att-btn" href="${sgPdfUrl(f,s)}" target="_blank" rel="noopener">檢視</a><a class="att-btn${isOld?'':' primary'}" href="${SONG_API}download/${f.id}" download>下載</a>${can.edit?(isOld?`<button type="button" class="att-btn" data-sg-restore="${f.id}">還原</button>`:`<a class="att-btn" href="${sgUrl({tab:'upload',song:s.id,kind:f.kind,key:f.key})}">取代</a>`)+`<button type="button" class="att-btn sg-danger" data-sg-delete="${f.id}">刪除</button>`:''}</div></li>`;
+ // 標準 is named only when the same 類型 and 調 also has other versions.
+ const siblings=f=>files.some(x=>x!==f&&x.kind===f.kind&&x.key===f.key);
+ const fileRow=(f,isOld)=>`<li class="sg-file${f.version?' sg-file-ver':''}" data-file="${f.id}"><div class="sg-file-text"><b>${esc(sgFileLabel(f))}${!isOld&&!f.version&&siblings(f)?' <span class="sg-std">標準</span>':''}</b><small>${sgSize(f.size)}・${isOld?`${sgDay(f.changed_at)} 移到舊版`:`${sgDay(f.created_at)} 加入`}${f.photos?`・由 ${f.photos} 張相片合成`:''}</small></div>
+  <div class="sg-file-actions"><a class="att-btn" href="${sgPdfUrl(f,s)}" target="_blank" rel="noopener">檢視</a><a class="att-btn${isOld?'':' primary'}" href="${SONG_API}download/${f.id}" download>下載</a>${can.edit?(isOld?`<button type="button" class="att-btn" data-sg-restore="${f.id}">還原</button>`:`<a class="att-btn" href="${sgUrl({tab:'upload',song:s.id,kind:f.kind,key:f.key,version:f.version})}" aria-label="取代「${esc(sgFileLabel(f))}」">取代</a>`)+`<button type="button" class="att-btn sg-danger" data-sg-delete="${f.id}">刪除</button>`:''}</div></li>`;
  root.innerHTML=`<p><a class="text-link sg-back" href="${sgUrl()}">← 返回歌單</a></p>
  <section class="panel sg-song" aria-labelledby="sg-song-title"><h2 class="sg-title" id="sg-song-title">${esc(sgTitle(s))}</h2>${s.title_zh&&s.title_en?`<p class="sg-title-en" lang="en">${esc(s.title_en)}</p>`:''}
- <dl class="sg-meta">${s.copyright?`<div><dt>版權機構</dt><dd>${esc(s.copyright)}${s.copyright_guess?' <span class="sg-guess">估計</span>':''}</dd></div>`:''}${s.note?`<div><dt>備註</dt><dd>${esc(s.note)}</dd></div>`:''}</dl>
+ <dl class="sg-meta">${s.copyright?`<div><dt>版權機構</dt><dd>${esc(s.copyright)}${s.copyright_guess?' <span class="sg-guess">估計</span>':''}</dd></div>`:''}${s.note?`<div><dt>備註</dt><dd>${esc(s.note)}</dd></div>`:''}${s.tags?.length?`<div><dt>標籤</dt><dd class="sg-tags sg-tags-inline">${sgTagChips(s.tags)}</dd></div>`:''}</dl>
  <p class="sg-notice" role="note">${SONG_NOTICE}</p>
  <h3 class="att-h3">檔案</h3>${files.length?`<ul class="sg-files">${files.map(f=>fileRow(f,false)).join('')}</ul>`:'<p class="att-empty">這首歌未有樂譜。</p>'}
  ${can.edit?`<p><a class="att-btn primary" href="${sgUrl({tab:'upload',song:s.id})}">為這首歌上載樂譜</a></p>`:''}</section>
- ${can.edit&&old.length?`<section class="panel"><h3 class="att-h3">舊版</h3><p class="att-help">取代後的舊檔案保存在 Google Drive 這首歌的「舊版」資料夾。只有傳道同工及網站管理員看到。</p><ul class="sg-files">${old.map(f=>fileRow(f,true)).join('')}</ul></section>`:''}
+ ${can.edit&&old.length?`<section class="panel"><h3 class="att-h3">舊版</h3><p class="att-help">取代後的舊檔案保存在 Google Drive 這首歌的「舊版」資料夾；還原只會換回同一版本。只有傳道同工及網站管理員看到。</p><ul class="sg-files">${old.map(f=>fileRow(f,true)).join('')}</ul></section>`:''}
  ${can.edit?sgEditForm(s):''}`;
  root.querySelectorAll('[data-sg-delete]').forEach(b=>b.addEventListener('click',async()=>{
   const f=[...files,...old].find(x=>x.id==b.dataset.sgDelete);
@@ -585,12 +601,25 @@ function sgEditForm(s){return `<section class="panel"><details class="sg-edit"><
  <div class="field"><input id="sg-copyright" maxlength="60" placeholder=" " value="${esc(s.copyright)}"><label for="sg-copyright">版權機構</label></div>
  <label class="check sg-check"><input type="checkbox" id="sg-guess" ${s.copyright_guess?'checked':''}><span class="checkmark" aria-hidden="true"></span><span>版權機構是估計</span></label>
  <div class="field"><input id="sg-note" maxlength="300" placeholder=" " value="${esc(s.note)}"><label for="sg-note">備註</label></div>
+ <fieldset class="sg-set sg-tag-edit"><legend>標籤</legend><ul class="sg-tag-list" id="sg-tag-list" aria-live="polite"></ul>
+ <div class="sg-tag-add"><label class="att-pick" for="sg-tag-new">新標籤<input id="sg-tag-new" list="sg-tag-hints" maxlength="12" autocomplete="off"></label><datalist id="sg-tag-hints">${[...new Set([...SONG_TAGS,...(sg.list?.tags||[]).map(t=>t.name)])].map(t=>`<option value="${esc(t)}">`).join('')}</datalist><button type="button" class="att-btn" id="sg-tag-add">加標籤</button></div>
+ <p class="att-help">最多 5 個，每個 1 至 12 字；按「儲存」後生效。</p></fieldset>
  <div class="att-actions"><button class="att-btn primary" type="submit">儲存</button><button class="att-btn sg-danger" type="button" id="sg-delete-song">刪除這首歌</button></div><p class="error" role="alert"></p></form></details></section>`}
 function sgTitleFields(s={}){return `<div class="field"><input id="sg-zh" maxlength="60" placeholder=" " autocomplete="off" value="${esc(s.title_zh||'')}"><label for="sg-zh">中文歌名</label></div><div class="field"><input id="sg-en" maxlength="80" placeholder=" " autocomplete="off" lang="en" value="${esc(s.title_en||'')}"><label for="sg-en">英文歌名（如有）</label></div>`}
 function sgBindEdit(root,s){
  const form=$('#sg-edit');if(!form)return;const error=form.querySelector('.error');
+ const tags=[...(s.tags||[])],box=$('#sg-tag-list'),input=$('#sg-tag-new');
+ const paintTags=()=>{box.innerHTML=tags.map((t,i)=>`<li><span class="sg-tag">${esc(t)}</span><button type="button" class="att-btn sg-tag-remove" data-sg-untag="${i}" aria-label="刪除標籤「${esc(t)}」"><span aria-hidden="true">×</span></button></li>`).join('')||'<li class="att-help">未有標籤。</li>'};
+ const addTag=()=>{error.textContent='';const t=input.value.normalize('NFKC').replace(/\s+/g,' ').trim();if(!t)return;
+  if([...t].length>12){error.textContent=songErr('invalid_tags');return}
+  if(!tags.includes(t)){if(tags.length>=5){error.textContent=songErr('invalid_tags');return}tags.push(t)}
+  input.value='';paintTags();input.focus()};
+ $('#sg-tag-add').addEventListener('click',addTag);
+ input.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();addTag()}});
+ box.addEventListener('click',e=>{const b=e.target.closest('[data-sg-untag]');if(!b)return;tags.splice(+b.dataset.sgUntag,1);paintTags();input.focus()});
+ paintTags();
  form.addEventListener('submit',async e=>{e.preventDefault();error.textContent='';
-  const x=await sgFetch('song',{method:'PATCH',body:{id:s.id,title_zh:$('#sg-zh').value,title_en:$('#sg-en').value,copyright:$('#sg-copyright').value,copyright_guess:$('#sg-guess').checked,note:$('#sg-note').value}});
+  const x=await sgFetch('song',{method:'PATCH',body:{id:s.id,title_zh:$('#sg-zh').value,title_en:$('#sg-en').value,copyright:$('#sg-copyright').value,copyright_guess:$('#sg-guess').checked,note:$('#sg-note').value,tags}});
   if(!x.ok){error.textContent=songErr(x.data.error)+(x.data.song?`（「${sgTitle(x.data.song)}」）`:'');return}
   toast('已儲存');loadSongs(routeSequence);
  });
@@ -617,6 +646,7 @@ function sgBindChooser(id,{allowNew=false,preset=null,onPick}={}){
  return {get:()=>picked,text:()=>input.value.trim()};
 }
 const sgKeySelect=(id,value='')=>`<label class="att-pick sg-key" for="${id}">調<select id="${id}"><option value="">不註明</option><optgroup label="大調">${SONG_KEYS.filter(k=>!k.endsWith('m')).map(k=>`<option ${k===value?'selected':''}>${k}</option>`).join('')}</optgroup><optgroup label="小調">${SONG_KEYS.filter(k=>k.endsWith('m')).map(k=>`<option ${k===value?'selected':''}>${k}</option>`).join('')}</optgroup></select></label>`;
+const sgVersionField=(id,value='')=>`<label class="att-pick sg-version" for="${id}">版本（可留空＝標準）<input id="${id}" list="${id}-hints" maxlength="16" autocomplete="off" placeholder="例如 簡譜、鋼琴" value="${esc(value)}"></label><datalist id="${id}-hints">${SONG_VERSIONS.map(v=>`<option value="${v}">`).join('')}</datalist>`;
 const sgKindPick=(name,value='score')=>`<div class="status-select sg-kind" role="radiogroup" aria-label="類型">${[['score','樂譜'],['drum','鼓譜']].map(([v,t])=>`<button type="button" role="radio" data-${name}="${v}" aria-checked="${v===value}" aria-pressed="${v===value}">${t}</button>`).join('')}</div>`;
 function sgBindKind(root,name,onChange){root.querySelectorAll(`[data-${name}]`).forEach(b=>b.addEventListener('click',()=>{root.querySelectorAll(`[data-${name}]`).forEach(x=>{x.setAttribute('aria-pressed',x===b);x.setAttribute('aria-checked',x===b)});onChange?.(b.dataset[name])}))}
 const sgKindOf=(root,name)=>root.querySelector(`[data-${name}][aria-pressed="true"]`)?.dataset[name]||'score';
@@ -634,20 +664,23 @@ async function sgUpload(root,sequence){
  <form id="sg-up" novalidate>
  ${sgChooser('sg-up-song','1. 選歌或新增')}
  <div class="sg-newsong" id="sg-newsong" hidden>${sgTitleFields()}</div>
- <fieldset class="sg-set"><legend>2. 類型及調</legend>${sgKindPick('upkind',p.get('kind')==='drum'?'drum':'score')}${sgKeySelect('sg-up-key',p.get('key')||'')}</fieldset>
+ <fieldset class="sg-set"><legend>2. 類型、調及版本</legend>${sgKindPick('upkind',p.get('kind')==='drum'?'drum':'score')}${sgKeySelect('sg-up-key',p.get('key')||'')}${sgVersionField('sg-up-version',p.get('version')||'')}</fieldset>
  <p class="sg-replace" id="sg-replace" role="status" hidden></p>
  <fieldset class="sg-set"><legend>3. 檔案</legend><label class="att-btn sg-pick">選擇 PDF 或相片<input id="sg-files" class="sr-only" type="file" accept="application/pdf,image/*" multiple></label>
  <ol class="sg-photos" id="sg-photos"></ol><p class="att-help" id="sg-files-note">未選擇檔案。</p></fieldset>
  <div class="att-actions"><button class="att-btn primary" type="submit" id="sg-up-go">上載</button></div>
  <p class="sg-progress" id="sg-progress" role="status"></p><p class="error" role="alert" id="sg-up-error"></p></form></section>`;
  let files=[];const error=$('#sg-up-error'),note=$('#sg-files-note');
- const replaceNote=()=>{const box=$('#sg-replace'),kind=sgKindOf(root,'upkind'),key=$('#sg-up-key').value,cur=detail?.files.find(f=>f.kind===kind&&f.key===key);box.hidden=!cur;if(cur)box.textContent=`這首歌已有「${sgFileLabel(cur)}」：上載後會取代它，舊檔移到「舊版」。`};
+ const replaceNote=()=>{const box=$('#sg-replace'),kind=sgKindOf(root,'upkind'),key=$('#sg-up-key').value,version=sgVersion($('#sg-up-version').value),same=detail?.files.filter(f=>f.kind===kind&&f.key===key)||[],cur=same.find(f=>f.version===version);
+  box.hidden=!same.length;
+  if(cur)box.textContent=`這首歌已有「${sgFileLabel(cur)}」：上載後會取代它，舊檔移到「舊版」。`;
+  else if(same.length)box.textContent=`這首歌已有 ${same.map(f=>`「${sgFileLabel(f)}」`).join('、')}：這個是新版本「${sgFileLabel({kind,key,version})}」，會並列顯示，不會取代。`};
  const chooser=sgBindChooser('sg-up-song',{allowNew:true,preset,onPick:async(picked,text)=>{
   $('#sg-newsong').hidden=picked!=='new';
   if(picked==='new'){detail=null;if(/\p{Script=Han}/u.test(text))$('#sg-zh').value=text;else $('#sg-en').value=text;replaceNote();return}
   const d=picked&&await sgFetch('song?id='+picked.id);detail=d&&d.ok?d.data:null;replaceNote();
  }});
- sgBindKind(root,'upkind',replaceNote);$('#sg-up-key').addEventListener('change',replaceNote);replaceNote();
+ sgBindKind(root,'upkind',replaceNote);$('#sg-up-key').addEventListener('change',replaceNote);$('#sg-up-version').addEventListener('input',replaceNote);replaceNote();
  const paintFiles=()=>{
   const photos=files.length&&files[0].type!=='application/pdf';
   $('#sg-photos').innerHTML=photos?files.map((f,i)=>`<li><span>${i+1}. ${esc(f.name)}<small>${sgSize(f.size)}</small></span><span class="sg-photo-move"><button type="button" class="att-btn" data-sg-move="${i}" data-d="-1" aria-label="把相片 ${i+1} 上移" ${i===0?'disabled':''}>↑</button><button type="button" class="att-btn" data-sg-move="${i}" data-d="1" aria-label="把相片 ${i+1} 下移" ${i===files.length-1?'disabled':''}>↓</button></span></li>`).join(''):'';
@@ -683,8 +716,8 @@ async function sgUpload(root,sequence){
    else bytes=files[0];
    if((bytes.size||bytes.byteLength)+(photos?total:0)>20*1048576){error.textContent=songErr('too_large');return}
    progress.textContent='正在上載到 Google Drive…';
-   const kind=sgKindOf(root,'upkind'),key=$('#sg-up-key').value;
-   const up=await sgFetch(`upload?song=${song.id}&kind=${kind}&key=${encodeURIComponent(key)}&photos=${photos?files.length:0}`,{method:'POST',raw:bytes,type:'application/pdf'});
+   const kind=sgKindOf(root,'upkind'),key=$('#sg-up-key').value,version=sgVersion($('#sg-up-version').value);
+   const up=await sgFetch(`upload?song=${song.id}&kind=${kind}&key=${encodeURIComponent(key)}${version?`&version=${encodeURIComponent(version)}`:''}&photos=${photos?files.length:0}`,{method:'POST',raw:bytes,type:'application/pdf'});
    if(!up.ok){error.textContent=songErr(up.data.error);return}
    for(let i=0;photos&&i<files.length;i++){
     progress.textContent=`正在保存原相片：第 ${i+1} / ${files.length} 張`;
@@ -741,7 +774,7 @@ async function sgAdmin(root,sequence){
  root.innerHTML=`${sgTabs({edit:true},'admin')}<section class="panel" aria-labelledby="sg-drive-title"><h2 class="att-h2" id="sg-drive-title">Google Drive</h2>
  <dl class="att-settings"><div><dt>狀態</dt><dd><b class="${d.connected?'sg-ok':''}">${state}</b>${fake?'<small>本機測試：使用假 Drive，不會連接 Google。</small>':''}</dd></div>
  ${admin?`<div><dt>帳戶</dt><dd>${d.email?esc(d.email):'—'}${d.connected_at?`<small>${sgDay(d.connected_at)} 由網站管理員連接</small>`:d.source==='secret'?'<small>使用 Worker secret 的授權</small>':''}</dd></div>`:''}
- <div><dt>位置</dt><dd>網站／詩歌庫／歌名／樂譜（X調）.pdf、鼓譜.pdf、原檔、舊版；刪除的檔案在「網站／詩歌庫／已刪除」。</dd></div></dl>
+ <div><dt>位置</dt><dd>網站／詩歌庫／歌名／樂譜（X調）.pdf、樂譜（簡譜）（X調）.pdf、鼓譜.pdf、原檔、舊版；刪除的檔案在「網站／詩歌庫／已刪除」。</dd></div></dl>
  ${admin?`<p class="att-help">用教會 Google 帳戶按一次「允許」，網站就可以在教會 Drive 存取詩歌庫的檔案（只限網站建立或選取的檔案）。授權會加密保存在網站資料庫。</p>${d.canConnect?`<p><a class="att-btn primary" href="/api/google/connect" id="sg-connect">${d.source==='d1'?'重新連接 Google Drive':'連接 Google Drive'}</a></p>`:'<p class="att-help">未能連接：網站未設定 Google client。</p>'}`:'<p class="att-help">只有網站管理員可以連接或重新連接 Google Drive。</p>'}
  </section>
  <section class="panel" aria-labelledby="sg-scan-title"><h2 class="att-h2" id="sg-scan-title">重新掃描 Drive</h2>
@@ -766,7 +799,7 @@ function sgFakePicker(list){
 }
 function sgScanList(files,heading){
  const box=$('#sg-scan-result');if(!box)return;
- box.innerHTML=`<h3 class="att-h3">${heading}：${files.length?`${files.length} 個未歸入的 PDF`:'沒有未歸入的檔案'}</h3><ul class="sg-scan">${files.map((f,i)=>`<li data-drive="${esc(f.id)}"><p class="sg-scan-name"><b>${esc(f.name)}</b><small>${sgSize(f.size)}</small></p>${sgChooser('sg-scan-'+i,'歸入哪首歌')}<div class="sg-set">${sgKindPick('scankind'+i)}${sgKeySelect('sg-scan-key'+i)}</div><div class="att-actions"><button type="button" class="att-btn primary" data-sg-attach="${i}">歸入</button></div><p class="error" role="alert"></p></li>`).join('')}</ul>`;
+ box.innerHTML=`<h3 class="att-h3">${heading}：${files.length?`${files.length} 個未歸入的 PDF`:'沒有未歸入的檔案'}</h3><ul class="sg-scan">${files.map((f,i)=>`<li data-drive="${esc(f.id)}"><p class="sg-scan-name"><b>${esc(f.name)}</b><small>${sgSize(f.size)}</small></p>${sgChooser('sg-scan-'+i,'歸入哪首歌')}<div class="sg-set">${sgKindPick('scankind'+i)}${sgKeySelect('sg-scan-key'+i)}${sgVersionField('sg-scan-version'+i)}</div><div class="att-actions"><button type="button" class="att-btn primary" data-sg-attach="${i}">歸入</button></div><p class="error" role="alert"></p></li>`).join('')}</ul>`;
  files.forEach((f,i)=>{
   const li=box.querySelector(`[data-drive="${CSS.escape(f.id)}"]`),ch=sgBindChooser('sg-scan-'+i);
   sgBindKind(li,'scankind'+i);
@@ -774,7 +807,7 @@ function sgScanList(files,heading){
    const song=ch.get(),err=li.querySelector('.error');err.textContent='';
    if(!song||song==='new'){err.textContent='請先選歌。';return}
    const b=e.currentTarget;b.disabled=true;
-   const x=await sgFetch('attach',{method:'POST',body:{drive_id:f.id,song:song.id,kind:sgKindOf(li,'scankind'+i),key:li.querySelector('select').value}});
+   const x=await sgFetch('attach',{method:'POST',body:{drive_id:f.id,song:song.id,kind:sgKindOf(li,'scankind'+i),key:li.querySelector('select').value,version:sgVersion(li.querySelector('.sg-version input').value)}});
    if(!x.ok){b.disabled=false;err.textContent=songErr(x.data.error);return}
    li.innerHTML=`<p class="sg-scan-done">已把「${esc(f.name)}」歸入 <a href="${sgUrl({song:song.id})}">${esc(sgTitle(song))}</a>。</p>`;
   });

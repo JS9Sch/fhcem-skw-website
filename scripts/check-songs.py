@@ -11,7 +11,8 @@ Covers: login wall; 會友 list (stroke order, English last, count), search (pre
 no match, clear by keyboard), 最近加入, song page with the copyright notice, view/download
 headers, no edit controls and 403 for writes; 管理員 upload a PDF as a new song, replace it
 with 3 phone photos joined into one 3-page PDF (order changed first), 舊版 and restore,
-delete to 已刪除, edit details, 連接 Google Drive (fake consent), 重新掃描 + attach,
+delete to 已刪除, a second 版本 (簡譜) beside the 標準 file and replacing only that version,
+edit details and 標籤, filter the list by 標籤 and find it by search, 連接 Google Drive (fake consent), 重新掃描 + attach,
 the fake Picker, delete a song; at 320/390/1440 no overflow and targets at least 44px.
 """
 import getpass, io, re, sys, time
@@ -192,6 +193,33 @@ def admin_flow(browser):
     expect(page.locator('.sg-files')).to_have_count(1)
     expect(page.locator('.sg-file b')).to_have_text(['樂譜（G調）'])
     ok('restore 舊版, delete to 已刪除')
+    # 3b. a second version (簡譜) of the same 類型 and 調 sits beside 標準; replacing it leaves 標準 alone
+    page.get_by_role('link', name='為這首歌上載樂譜').click()
+    page.wait_for_selector('#sg-up')
+    page.select_option('#sg-up-key', 'G')
+    page.fill('#sg-up-version', '簡譜')
+    expect(page.locator('#sg-replace')).to_contain_text('不會取代')
+    page.set_input_files('#sg-files', test_pdf('jianpu'))
+    layout(page, 'upload version 390'); shot(page, 'upload-version-390.png')
+    page.get_by_role('button', name='上載', exact=True).click()
+    page.wait_for_selector('.sg-song')
+    current = page.locator('.sg-files').first.locator('.sg-file b')
+    expect(current).to_have_text([re.compile(r'^樂譜（G調）\s*標準$'), '樂譜（簡譜）（G調）'])
+    std_href = page.locator('.sg-files').first.get_by_role('link', name='下載').first.get_attribute('href')
+    r = ctx.request.get(BASE + page.locator('.sg-files').first.get_by_role('link', name='下載').nth(1).get_attribute('href'))
+    assert r.status == 200 and '%E7%B0%A1%E8%AD%9C' in r.headers['content-disposition'], 'download name has 簡譜'
+    page.get_by_role('link', name='取代「樂譜（簡譜）（G調）」').click()
+    page.wait_for_selector('#sg-up')
+    expect(page.locator('#sg-up-version')).to_have_value('簡譜')
+    expect(page.locator('#sg-replace')).to_contain_text('會取代它')
+    page.set_input_files('#sg-files', test_pdf('jianpu two'))
+    page.get_by_role('button', name='上載', exact=True).click()
+    page.wait_for_selector('.sg-song')
+    expect(current).to_have_count(2)
+    assert page.locator('.sg-files').first.get_by_role('link', name='下載').first.get_attribute('href') == std_href, '標準 file changed'
+    expect(page.locator('.sg-files').nth(1).locator('.sg-file b')).to_have_text(['樂譜（簡譜）（G調）'])
+    layout(page, 'song versions 390'); shot(page, 'song-versions-390.png')
+    ok('second 版本 beside 標準; replacing 簡譜 leaves 標準 alone, old 簡譜 in 舊版')
     # 4. edit details
     page.locator('.sg-edit summary').click()
     page.fill('#sg-copyright', '測試機構'); page.check('#sg-guess', force=True)
@@ -199,6 +227,34 @@ def admin_flow(browser):
     expect(page.locator('.sg-meta')).to_contain_text('測試機構')
     expect(page.locator('.sg-guess')).to_have_text('估計')
     ok('edit details (版權機構 估計)')
+    # 4b. 標籤: add two, remove one, save; chip on the song page and in the list; filter and search
+    page.locator('.sg-edit summary').click()
+    for t in ['其他', '暫時']:
+        page.fill('#sg-tag-new', t); page.get_by_role('button', name='加標籤').click()
+    expect(page.locator('#sg-tag-list .sg-tag')).to_have_text(['其他', '暫時'])
+    page.get_by_role('button', name='刪除標籤「暫時」').click()
+    expect(page.locator('#sg-tag-list .sg-tag')).to_have_text(['其他'])
+    layout(page, 'edit tags 390'); shot(page, 'edit-tags-390.png')
+    page.get_by_role('button', name='儲存').click()
+    expect(page.locator('.sg-meta .sg-tag')).to_have_text(['其他'])
+    songs_page(page)
+    expect(page.locator('.sg-item').filter(has_text=NEW_SONG).locator('.sg-tag')).to_have_text(['其他'])
+    page.get_by_role('button', name='其他（1）').click()
+    expect(page.locator('.sg-item')).to_have_count(1)
+    expect(page.locator('#sg-count')).to_contain_text('標籤「其他」')
+    page.get_by_role('button', name='不限').click()
+    expect(page.locator('.sg-item')).to_have_count(21)
+    page.get_by_label('搜尋詩歌', exact=True).fill('其他')
+    expect(page.locator('.sg-item .sg-name b')).to_have_text([NEW_SONG])
+    page.get_by_label('搜尋詩歌', exact=True).fill('')
+    for w, h in [(320, 740), (390, 844), (1440, 1000)]:
+        page.set_viewport_size({'width': w, 'height': h})
+        page.goto(song_url); page.wait_for_selector('.sg-song'); layout(page, f'versions {w}'); shot(page, f'versions-{w}.png')
+        songs_page(page); page.get_by_role('button', name='其他（1）').click(); expect(page.locator('.sg-item')).to_have_count(1)
+        layout(page, f'tag filter {w}'); shot(page, f'tag-filter-{w}.png')
+        page.get_by_role('button', name='不限').click()
+    page.set_viewport_size({'width': 390, 'height': 844})
+    ok('標籤: add/remove/save, chip, filter by 標籤, search finds it; versions and filter at 320/390/1440')
     # 5. 管理: connect (fake consent) and 重新掃描
     songs_page(page, '?tab=admin')
     expect(page.locator('#sg-root')).to_contain_text('假 Drive')

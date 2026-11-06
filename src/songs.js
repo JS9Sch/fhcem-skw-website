@@ -4,7 +4,7 @@
 import { authenticated } from './auth.js';
 import { roleName } from './unit-access.js';
 import { openDrive, driveMode, storedConnection, saveConnection, refreshToken, consentUrl, exchangeCode, DriveError, FOLDER_MIME } from './drive.js';
-import { cleanTitle, cleanKey, folderName, sortSongs, searchSongs, searchForm, KINDS, ROOT_PATH, OLD_FOLDER, ORIGINALS_FOLDER, DELETED_FOLDER, fileName, oldName, deletedName, downloadName, disposition, MAX_UPLOAD, MAX_PHOTOS, isPdf, imageType, hasChinese } from './songs-core.js';
+import { cleanTitle, cleanKey, cleanVersion, cleanTags, parseTags, folderName, sortSongs, searchSongs, searchForm, KINDS, ROOT_PATH, OLD_FOLDER, ORIGINALS_FOLDER, DELETED_FOLDER, fileName, oldName, deletedName, downloadName, disposition, MAX_UPLOAD, MAX_PHOTOS, isPdf, imageType, hasChinese } from './songs-core.js';
 
 // ---- the one place that decides who may do what (trial period, decisions Q13) ----
 // Any signed-in 會友 may look and download; 同工 and 管理員 may upload, edit and delete;
@@ -51,27 +51,32 @@ async function songRow(env, id) {
   return db(env).prepare("SELECT * FROM songs WHERE id = ? AND state = 'active'").bind(n).first();
 }
 const title = s => s.title_zh || s.title_en;
-const songOut = s => ({ id: s.id, title_zh: s.title_zh, title_en: s.title_en, copyright: s.copyright, copyright_guess: !!s.copyright_guess, note: s.note, created_at: s.created_at, updated_at: s.updated_at, updated_role: s.updated_role });
-const fileOut = f => ({ id: f.id, kind: f.kind, kind_name: KINDS[f.kind], key: f.song_key, size: f.size, photos: f.photos, state: f.state, created_at: f.created_at, created_role: f.created_role, changed_at: f.changed_at, changed_role: f.changed_role });
+const songOut = s => ({ id: s.id, title_zh: s.title_zh, title_en: s.title_en, copyright: s.copyright, copyright_guess: !!s.copyright_guess, note: s.note, tags: parseTags(s.tags), created_at: s.created_at, updated_at: s.updated_at, updated_role: s.updated_role });
+const fileOut = f => ({ id: f.id, kind: f.kind, kind_name: KINDS[f.kind], key: f.song_key, version: f.version, size: f.size, photos: f.photos, state: f.state, created_at: f.created_at, created_role: f.created_role, changed_at: f.changed_at, changed_role: f.changed_role });
 
 async function listSongs(ctx) {
-  const rows = (await db(ctx.env).prepare(`SELECT s.id, s.title_zh, s.title_en, s.created_at,
-      (SELECT group_concat(f.kind || ':' || f.song_key, '|') FROM song_files f WHERE f.song_id = s.id AND f.state = 'current') AS files,
+  const rows = (await db(ctx.env).prepare(`SELECT s.id, s.title_zh, s.title_en, s.tags, s.created_at,
+      (SELECT json_group_array(json_object('kind', f.kind, 'key', f.song_key, 'version', f.version)) FROM song_files f WHERE f.song_id = s.id AND f.state = 'current') AS files,
       (SELECT max(f.created_at) FROM song_files f WHERE f.song_id = s.id AND f.state = 'current') AS added
     FROM songs s WHERE s.state = 'active'`).all()).results;
   const summary = r => {
-    const files = (r.files || '').split('|').filter(Boolean).map(x => { const i = x.indexOf(':'); return { kind: x.slice(0, i), key: x.slice(i + 1) }; });
-    return { id: r.id, title_zh: r.title_zh, title_en: r.title_en, keys: [...new Set(files.filter(f => f.kind === 'score').map(f => f.key).filter(Boolean))], score: files.some(f => f.kind === 'score'), drum: files.some(f => f.kind === 'drum'), added: r.added || r.created_at };
+    const files = JSON.parse(r.files || '[]');
+    return { id: r.id, title_zh: r.title_zh, title_en: r.title_en, tags: parseTags(r.tags), keys: [...new Set(files.filter(f => f.kind === 'score').map(f => f.key).filter(Boolean))],
+      versions: [...new Set(files.map(f => f.version).filter(Boolean))], score: files.some(f => f.kind === 'score'), drum: files.some(f => f.kind === 'drum'), added: r.added || r.created_at };
   };
   const all = rows.map(summary), q = ctx.url.searchParams.get('q') || '';
   const recent = [...all].sort((a, b) => (b.added > a.added ? 1 : b.added < a.added ? -1 : b.id - a.id)).slice(0, 20);
-  return [{ can: { edit: ctx.access.edit, admin: ctx.access.admin }, total: all.length, query: q, songs: q ? searchSongs(all, q) : sortSongs(all), recent }];
+  // Every tag in use with its count; the page filters by tag itself (it already has all songs).
+  const tags = new Map();
+  for (const s of all) for (const t of s.tags) tags.set(t, (tags.get(t) || 0) + 1);
+  return [{ can: { edit: ctx.access.edit, admin: ctx.access.admin }, total: all.length, query: q, songs: q ? searchSongs(all, q) : sortSongs(all), recent,
+    tags: [...tags].map(([name, count]) => ({ name, count })).sort((a, b) => b.count - a.count || a.name.localeCompare(b.name, 'zh-HK')) }];
 }
 async function getSong(ctx) {
   const s = await songRow(ctx.env, ctx.url.searchParams.get('id'));
   if (!s) fail(404, 'song_not_found');
   const states = ctx.access.edit ? "('current', 'old')" : "('current')";
-  const files = (await db(ctx.env).prepare(`SELECT * FROM song_files WHERE song_id = ? AND state IN ${states} ORDER BY state = 'old', kind = 'drum', song_key, created_at DESC`).bind(s.id).all()).results;
+  const files = (await db(ctx.env).prepare(`SELECT * FROM song_files WHERE song_id = ? AND state IN ${states} ORDER BY state = 'old', kind = 'drum', song_key, version <> '', version, created_at DESC`).bind(s.id).all()).results;
   return [{ can: { edit: ctx.access.edit, admin: ctx.access.admin }, song: songOut(s), files: files.filter(f => f.state === 'current').map(fileOut), old: files.filter(f => f.state === 'old').map(fileOut) }];
 }
 // Title rules: at least one of 中文／英文; the Chinese title (or the English one when there is
@@ -80,6 +85,8 @@ function songFields(body, old = {}) {
   const pick = (k, max) => { if (body[k] === undefined) return old[k] ?? ''; const v = cleanTitle(body[k], max); if (v === null) fail(400, 'invalid_' + k); return v; };
   const out = { title_zh: pick('title_zh', 60), title_en: pick('title_en', 80), copyright: pick('copyright', 60), note: pick('note', 300),
     copyright_guess: body.copyright_guess === undefined ? (old.copyright_guess ?? 0) : body.copyright_guess ? 1 : 0 };
+  if (body.tags === undefined) out.tags = old.tags ?? '[]';
+  else { const tags = cleanTags(body.tags); if (tags === null) fail(400, 'invalid_tags'); out.tags = JSON.stringify(tags); }
   if (!out.title_zh && !out.title_en) fail(400, 'title_required');
   if (out.title_zh && !hasChinese(out) ) fail(400, 'invalid_title_zh');
   return out;
@@ -93,8 +100,8 @@ async function createSong(ctx) {
   const fields = songFields(ctx.body), dup = await duplicateOf(ctx.env, fields);
   if (dup) fail(409, 'duplicate_title', { song: { id: dup.id, title_zh: dup.title_zh, title_en: dup.title_en } });
   const t = iso(ctx.now);
-  const r = await db(ctx.env).prepare('INSERT INTO songs (title_zh, title_en, copyright, copyright_guess, note, created_at, updated_at, updated_role) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
-    .bind(fields.title_zh, fields.title_en, fields.copyright, fields.copyright_guess, fields.note, t, t, ctx.access.who).run();
+  const r = await db(ctx.env).prepare('INSERT INTO songs (title_zh, title_en, copyright, copyright_guess, note, tags, created_at, updated_at, updated_role) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)')
+    .bind(fields.title_zh, fields.title_en, fields.copyright, fields.copyright_guess, fields.note, fields.tags, t, t, ctx.access.who).run();
   return [{ song: songOut(await songRow(ctx.env, r.meta.last_row_id)) }, 201];
 }
 async function editSong(ctx) {
@@ -107,8 +114,8 @@ async function editSong(ctx) {
     await drive.rename(s.folder_id, folderName(title(fields)));
     await db(ctx.env).prepare('DELETE FROM drive_folders WHERE drive_id = ?').bind(s.folder_id).run();
   }
-  await db(ctx.env).prepare('UPDATE songs SET title_zh = ?, title_en = ?, copyright = ?, copyright_guess = ?, note = ?, updated_at = ?, updated_role = ? WHERE id = ?')
-    .bind(fields.title_zh, fields.title_en, fields.copyright, fields.copyright_guess, fields.note, iso(ctx.now), ctx.access.who, s.id).run();
+  await db(ctx.env).prepare('UPDATE songs SET title_zh = ?, title_en = ?, copyright = ?, copyright_guess = ?, note = ?, tags = ?, updated_at = ?, updated_role = ? WHERE id = ?')
+    .bind(fields.title_zh, fields.title_en, fields.copyright, fields.copyright_guess, fields.note, fields.tags, iso(ctx.now), ctx.access.who, s.id).run();
   return [{ song: songOut(await songRow(ctx.env, s.id)) }];
 }
 // Deleting a song moves every shown file to 已刪除 (nothing is erased) and hides the song.
@@ -153,10 +160,13 @@ async function retryingFolders(ctx, s, work) {
   }
 }
 
-// Put a PDF in place as the shown 樂譜／鼓譜 of this key; the one it replaces goes to 舊版/.
-async function placeFile(ctx, s, kind, key, { bytes, driveId, photos = 0 }) {
-  const drive = ctx.drive(), name = fileName(kind, key);
-  const current = await db(ctx.env).prepare("SELECT * FROM song_files WHERE song_id = ? AND kind = ? AND song_key = ? AND state = 'current'").bind(s.id, kind, key).first();
+// The shown file of one 類型, 調 and 版本 (at most one, see migrations 0003).
+const currentFile = (env, songId, kind, key, version) => db(env).prepare("SELECT * FROM song_files WHERE song_id = ? AND kind = ? AND song_key = ? AND version = ? AND state = 'current'").bind(songId, kind, key, version).first();
+// Put a PDF in place as the shown 樂譜／鼓譜 of this key and version; the one it replaces goes
+// to 舊版/. Other versions are not touched.
+async function placeFile(ctx, s, { kind, key, version }, { bytes, driveId, photos = 0 }) {
+  const drive = ctx.drive(), name = fileName(kind, key, version);
+  const current = await currentFile(ctx.env, s.id, kind, key, version);
   const placed = await retryingFolders(ctx, s, async () => {
     const folder = await songFolder(ctx, s);
     if (bytes) return drive.upload(folder, name, 'application/pdf', bytes);
@@ -165,33 +175,35 @@ async function placeFile(ctx, s, kind, key, { bytes, driveId, photos = 0 }) {
   });
   const t = iso(ctx.now), who = ctx.access.who, statements = [];
   if (current) {
-    await drive.move(current.drive_id, await subFolder(ctx, s, OLD_FOLDER), oldName(kind, key, ctx.now));
+    await drive.move(current.drive_id, await subFolder(ctx, s, OLD_FOLDER), oldName(kind, key, ctx.now, version));
     statements.push(db(ctx.env).prepare("UPDATE song_files SET state = 'old', changed_at = ?, changed_role = ? WHERE id = ?").bind(t, who, current.id));
   }
-  statements.push(db(ctx.env).prepare('INSERT INTO song_files (song_id, kind, song_key, drive_id, size, photos, state, created_at, created_role) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)')
-    .bind(s.id, kind, key, placed.id, placed.size, photos, 'current', t, who));
+  statements.push(db(ctx.env).prepare('INSERT INTO song_files (song_id, kind, song_key, version, drive_id, size, photos, state, created_at, created_role) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
+    .bind(s.id, kind, key, version, placed.id, placed.size, photos, 'current', t, who));
   statements.push(db(ctx.env).prepare('UPDATE songs SET updated_at = ?, updated_role = ? WHERE id = ?').bind(t, who, s.id));
   await db(ctx.env).batch(statements);
   const row = await db(ctx.env).prepare('SELECT * FROM song_files WHERE drive_id = ?').bind(placed.id).first();
   return { file: fileOut(row), replaced: current ? current.id : null };
 }
-function kindAndKey(params) {
-  const kind = params.get('kind'), key = cleanKey(params.get('key') ?? '');
+// 類型, 調 and 版本 (optional; '' or 「標準」 = the standard file).
+function slotOf(params) {
+  const kind = params.get('kind'), key = cleanKey(params.get('key') ?? ''), version = cleanVersion(params.get('version') ?? '');
   if (!Object.hasOwn(KINDS, kind || '')) fail(400, 'invalid_kind');
   if (key === null) fail(400, 'invalid_key');
-  return { kind, key };
+  if (version === null) fail(400, 'invalid_version');
+  return { kind, key, version };
 }
-// POST /api/songs/upload?song=&kind=score|drum&key=G&photos=n — body: the PDF itself.
+// POST /api/songs/upload?song=&kind=score|drum&key=G&version=簡譜&photos=n — body: the PDF itself.
 async function upload(ctx) {
   const p = ctx.url.searchParams, s = await songRow(ctx.env, p.get('song'));
   if (!s) fail(404, 'song_not_found');
-  const { kind, key } = kindAndKey(p);
+  const slot = slotOf(p);
   const photos = Number(p.get('photos') || 0);
   if (!Number.isInteger(photos) || photos < 0 || photos > MAX_PHOTOS) fail(400, 'too_many_photos');
   if (!(ctx.request.headers.get('Content-Type') || '').startsWith('application/pdf')) fail(415, 'not_pdf');
   const bytes = await readBytes(ctx.request);
   if (!isPdf(bytes)) fail(415, 'not_pdf');
-  return [await placeFile(ctx, s, kind, key, { bytes, photos }), 201];
+  return [await placeFile(ctx, s, slot, { bytes, photos }), 201];
 }
 // POST /api/songs/original?file=&seq=1 — body: one phone photo, kept in the song's 原檔/.
 async function original(ctx) {
@@ -203,14 +215,14 @@ async function original(ctx) {
   if (!type) fail(415, 'not_image');
   const s = await songRow(ctx.env, f.song_id);
   const folder = await subFolder(ctx, s, ORIGINALS_FOLDER);
-  const name = `${fileName(f.kind, f.song_key).replace(/\.pdf$/, '')} ${new Date(ctx.now + 8 * 3600e3).toISOString().slice(0, 10)} 相片${seq}.${type.ext}`;
+  const name = `${fileName(f.kind, f.song_key, f.version).replace(/\.pdf$/, '')} ${new Date(ctx.now + 8 * 3600e3).toISOString().slice(0, 10)} 相片${seq}.${type.ext}`;
   const up = await ctx.drive().upload(folder, name, type.mime, bytes);
   await db(ctx.env).prepare('INSERT INTO song_originals (file_id, drive_id, seq, created_at) VALUES (?, ?, ?, ?)').bind(f.id, up.id, seq, iso(ctx.now)).run();
   return [{ original: { file: f.id, seq } }, 201];
 }
 async function trashFile(ctx, s, f) {
   const deleted = await folderAt(ctx, [...ROOT_PATH, DELETED_FOLDER]);
-  await ctx.drive().move(f.drive_id, deleted, deletedName(title(s), f.kind, f.song_key, ctx.now));
+  await ctx.drive().move(f.drive_id, deleted, deletedName(title(s), f.kind, f.song_key, ctx.now, f.version));
   await db(ctx.env).prepare("UPDATE song_files SET state = 'deleted', changed_at = ?, changed_role = ? WHERE id = ?").bind(iso(ctx.now), ctx.access.who, f.id).run();
 }
 // DELETE /api/songs/file {id}: the shown file or an old version goes to 已刪除 (not erased).
@@ -220,14 +232,14 @@ async function deleteFile(ctx) {
   await trashFile(ctx, await songRow(ctx.env, f.song_id), f);
   return [{ deleted: f.id }];
 }
-// POST /api/songs/restore {id}: an old version becomes the shown file again; the shown one goes to 舊版.
+// POST /api/songs/restore {id}: an old file becomes the shown file of its 版本 again; the shown one goes to 舊版.
 async function restoreFile(ctx) {
   const f = await db(ctx.env).prepare("SELECT * FROM song_files WHERE id = ? AND state = 'old'").bind(Number(ctx.body.id) || 0).first();
   if (!f) fail(404, 'file_not_found');
   const s = await songRow(ctx.env, f.song_id), drive = ctx.drive(), t = iso(ctx.now), who = ctx.access.who;
-  const current = await db(ctx.env).prepare("SELECT * FROM song_files WHERE song_id = ? AND kind = ? AND song_key = ? AND state = 'current'").bind(s.id, f.kind, f.song_key).first();
-  if (current) await drive.move(current.drive_id, await subFolder(ctx, s, OLD_FOLDER), oldName(f.kind, f.song_key, ctx.now));
-  await drive.move(f.drive_id, await songFolder(ctx, s), fileName(f.kind, f.song_key));
+  const current = await currentFile(ctx.env, s.id, f.kind, f.song_key, f.version);
+  if (current) await drive.move(current.drive_id, await subFolder(ctx, s, OLD_FOLDER), oldName(f.kind, f.song_key, ctx.now, f.version));
+  await drive.move(f.drive_id, await songFolder(ctx, s), fileName(f.kind, f.song_key, f.version));
   const statements = [];
   if (current) statements.push(db(ctx.env).prepare("UPDATE song_files SET state = 'old', changed_at = ?, changed_role = ? WHERE id = ?").bind(t, who, current.id));
   statements.push(db(ctx.env).prepare("UPDATE song_files SET state = 'current', changed_at = ?, changed_role = ? WHERE id = ?").bind(t, who, f.id));
@@ -257,7 +269,7 @@ async function servePdf(ctx, attachment) {
       source = copy;
     }
   }
-  const name = downloadName(title(f), f.kind, f.song_key);
+  const name = downloadName(title(f), f.kind, f.song_key, f.version);
   const headers = { 'Content-Type': 'application/pdf', 'Content-Disposition': disposition(attachment ? 'attachment' : 'inline', name), 'Cache-Control': 'private, max-age=300' };
   if (source.headers.get('Content-Length')) headers['Content-Length'] = source.headers.get('Content-Length');
   return new Response(ctx.request.method === 'HEAD' ? null : source.body, { headers });
@@ -288,16 +300,17 @@ async function scanPicked(ctx) {
   }
   return [{ files: out }];
 }
-// POST /api/songs/attach {drive_id, song, kind, key}: file it under the song with the usual name.
+// POST /api/songs/attach {drive_id, song, kind, key, version}: file it under the song with the usual name.
 async function attach(ctx) {
   const b = ctx.body, s = await songRow(ctx.env, b.song);
   if (!s) fail(404, 'song_not_found');
-  const { kind, key } = kindAndKey(new URLSearchParams({ kind: b.kind ?? '', key: b.key ?? '' }));
+  if (b.version !== undefined && b.version !== null && typeof b.version !== 'string') fail(400, 'invalid_version');
+  const slot = slotOf(new URLSearchParams({ kind: b.kind ?? '', key: b.key ?? '', version: b.version ?? '' }));
   if (typeof b.drive_id !== 'string' || !/^[\w-]{10,80}$/.test(b.drive_id)) fail(400, 'invalid_ids');
   if ((await knownIds(ctx.env)).has(b.drive_id)) fail(409, 'already_filed');
   const m = await ctx.drive().meta(b.drive_id).catch(() => null);
   if (!m || m.trashed || !looksPdf(m)) fail(404, 'file_not_found');
-  return [await placeFile(ctx, s, kind, key, { driveId: b.drive_id }), 201];
+  return [await placeFile(ctx, s, slot, { driveId: b.drive_id }), 201];
 }
 
 // ---- Google connection (status for 同工; connect for 管理員) ----

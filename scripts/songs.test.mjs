@@ -6,13 +6,13 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createHash, randomBytes } from 'node:crypto';
 import { DatabaseSync } from 'node:sqlite';
-import { stripLeading, searchForm, sortSongs, searchSongs, cleanKey, cleanTitle, fileName, oldName, downloadName, disposition, isPdf, imageType, MAX_UPLOAD } from '../src/songs-core.js';
+import { stripLeading, searchForm, sortSongs, searchSongs, cleanKey, cleanTitle, cleanVersion, cleanTags, fileLabel, deletedName, fileName, oldName, downloadName, disposition, isPdf, imageType, MAX_UPLOAD } from '../src/songs-core.js';
 import { songsApi, googleApi, songAccess, STATE_COOKIE } from '../src/songs.js';
 import { googleDrive, sealToken, unsealToken, refreshToken } from '../src/drive.js';
 import { sessionCookie } from '../src/auth.js';
 import { respond } from '../src/router.js';
 
-const MIGRATIONS = ['0001_attendance.sql', '0002_songs.sql'].map(f => readFileSync(new URL('../migrations/' + f, import.meta.url), 'utf8'));
+const MIGRATIONS = ['0001_attendance.sql', '0002_songs.sql', '0003_song_versions.sql'].map(f => readFileSync(new URL('../migrations/' + f, import.meta.url), 'utf8'));
 function d1() {
   const db = new DatabaseSync(':memory:');
   db.exec('PRAGMA foreign_keys = ON'); for (const m of MIGRATIONS) db.exec(m);
@@ -96,6 +96,92 @@ test('keys, names and file checks', () => {
   assert.match(disposition('attachment', '奇異恩典－樂譜.pdf'), /^attachment; filename="[^"]+"; filename\*=UTF-8''%E5%A5%87/);
   assert.ok(isPdf(pdf('x'))); assert.ok(!isPdf(jpeg()));
   assert.equal(imageType(jpeg()).mime, 'image/jpeg'); assert.equal(imageType(pdf('x')), null);
+});
+
+test('版本 and 標籤: clean-up rules and file names', () => {
+  assert.equal(cleanVersion(undefined), ''); assert.equal(cleanVersion(''), ''); assert.equal(cleanVersion(' 標準 '), '');
+  assert.equal(cleanVersion(' 簡譜 '), '簡譜'); assert.equal(cleanVersion('ＡＬＴＯ'), 'ALTO'); assert.equal(cleanVersion('粵語  版'), '粵語 版');
+  assert.equal(cleanVersion('長'.repeat(16)), '長'.repeat(16)); assert.equal(cleanVersion('長'.repeat(17)), null);
+  assert.equal(cleanVersion('a/b'), null); assert.equal(cleanVersion('a\\b'), null); assert.equal(cleanVersion('a\u0001'), null); assert.equal(cleanVersion(3), null);
+  assert.equal(fileLabel('score', 'G', '簡譜'), '樂譜（簡譜）（G調）'); assert.equal(fileName('score', '', ''), '樂譜.pdf'); assert.equal(fileName('drum', '', '前奏'), '鼓譜（前奏）.pdf');
+  assert.equal(oldName('score', 'G', NOW, '鋼琴'), '樂譜（鋼琴）（G調） 2026-11-06 2215.pdf');
+  assert.equal(deletedName('奇異恩典', 'score', 'G', NOW, '和弦'), '奇異恩典－樂譜（和弦）（G調） 2026-11-06 2215.pdf');
+  assert.equal(downloadName('奇異恩典', 'score', 'B♭', 'Alto'), '奇異恩典－樂譜（Alto）（B♭調）.pdf');
+  assert.deepEqual(cleanTags([]), []); assert.deepEqual(cleanTags([' 其他 ', '其他', 'ＡＢ']), ['其他', 'AB']);
+  assert.deepEqual(cleanTags(['a', 'b', 'c', 'd', 'e', 'e']), ['a', 'b', 'c', 'd', 'e']);
+  assert.equal(cleanTags(['a', 'b', 'c', 'd', 'e', 'f']), null); assert.equal(cleanTags(['']), null); assert.equal(cleanTags(['長'.repeat(13)]), null);
+  assert.deepEqual(cleanTags(['長'.repeat(12)]), ['長'.repeat(12)]); assert.equal(cleanTags('其他'), null); assert.equal(cleanTags([1]), null);
+  // Search also finds tags, after every title match.
+  const list = [{ id: 1, title_zh: '其他的愛', title_en: '', tags: [] }, { id: 2, title_zh: '主', title_en: '', tags: ['其他'] }, { id: 3, title_zh: '讚美', title_en: '', tags: ['只有鼓譜'] }];
+  assert.deepEqual(searchSongs(list, '其他').map(s => s.id), [1, 2]);
+  assert.deepEqual(searchSongs(list, '鼓譜').map(s => s.id), [3]);
+});
+
+test('versions: same 類型 and 調, different 版本 sit side by side; replace and restore stay within one version', async () => {
+  const env = environment(); await asStaff(env);
+  const member = client(env, await cookieFor(env, 'member')), staff = client(env, await cookieFor(env, 'staff'));
+  const id = (await staff('POST', 'song', { title_zh: '奇異恩典' })).data.song.id;
+  const std = await staff('POST', `upload?song=${id}&kind=score&key=G`, pdf('std'));
+  const jianpu = await staff('POST', `upload?song=${id}&kind=score&key=G&version=${encodeURIComponent('簡譜')}`, pdf('jianpu'));
+  assert.equal(jianpu.status, 201); assert.equal(jianpu.data.replaced, null); assert.equal(jianpu.data.file.version, '簡譜');
+  const piano = await staff('POST', `upload?song=${id}&kind=score&key=G&version=${encodeURIComponent('鋼琴')}`, pdf('piano'));
+  assert.equal(piano.data.replaced, null);
+  // 「標準」 is the same as no version: it replaces the standard file only.
+  const std2 = await staff('POST', `upload?song=${id}&kind=score&key=G&version=${encodeURIComponent('標準')}`, pdf('std2'));
+  assert.equal(std2.data.replaced, std.data.file.id); assert.equal(std2.data.file.version, '');
+  const jianpu2 = await staff('POST', `upload?song=${id}&kind=score&key=G&version=${encodeURIComponent(' 簡譜 ')}`, pdf('jianpu2'));
+  assert.equal(jianpu2.data.replaced, jianpu.data.file.id);
+  assert.equal((await staff('POST', `upload?song=${id}&kind=score&key=G&version=a%2Fb`, pdf('x'))).data.error, 'invalid_version');
+  const shown = (await member('GET', 'song?id=' + id)).data;
+  assert.deepEqual(shown.files.map(f => [f.key, f.version]), [['G', ''], ['G', '簡譜'], ['G', '鋼琴']]); // 標準 first
+  const old = (await staff('GET', 'song?id=' + id)).data.old;
+  assert.deepEqual(old.map(f => f.version).sort(), ['', '簡譜']);
+  const paths = drivePaths(env);
+  for (const p of ['樂譜（G調）.pdf', '樂譜（簡譜）（G調）.pdf', '樂譜（鋼琴）（G調）.pdf', '舊版/樂譜（G調） 2026-11-06 2215.pdf', '舊版/樂譜（簡譜）（G調） 2026-11-06 2215.pdf'])
+    assert.ok(paths.includes('網站/詩歌庫/奇異恩典/' + p), p);
+  assert.match((await member('GET', `download/${jianpu2.data.file.id}`)).headers.get('Content-Disposition'), /filename\*=UTF-8''.*%E7%B0%A1%E8%AD%9C/); // 簡譜 in the name
+  // Restore the old 簡譜: only 簡譜 swaps, 標準 and 鋼琴 stay.
+  const back = await staff('POST', 'restore', { id: jianpu.data.file.id });
+  assert.equal(back.data.replaced, jianpu2.data.file.id); assert.equal(back.data.file.version, '簡譜');
+  const after = (await member('GET', 'song?id=' + id)).data.files;
+  assert.deepEqual(after.map(f => f.id), [std2.data.file.id, jianpu.data.file.id, piano.data.file.id]);
+  assert.equal(new TextDecoder().decode((await member('GET', `download/${jianpu.data.file.id}`)).data), new TextDecoder().decode(pdf('jianpu')));
+  // Delete one version: the name in 已刪除 says which.
+  await staff('DELETE', 'file', { id: piano.data.file.id });
+  assert.ok(drivePaths(env).includes('網站/詩歌庫/已刪除/奇異恩典－樂譜（鋼琴）（G調） 2026-11-06 2215.pdf'));
+  const row = (await member('GET', 'list')).data.songs[0];
+  assert.deepEqual(row.keys, ['G']); assert.deepEqual(row.versions, ['簡譜']);
+  // Attach a scanned PDF as a version.
+  const { fakeDrive } = await import('../src/drive.js');
+  const root = env.ATT_DB.raw.prepare("SELECT drive_id FROM drive_folders WHERE path = '網站/詩歌庫'").get().drive_id;
+  const loose = await fakeDrive(env.ATT_DB).upload(root, 'scan 002.pdf', 'application/pdf', pdf('loose'));
+  assert.equal((await staff('POST', 'attach', { drive_id: loose.id, song: id, kind: 'score', key: 'G', version: 3 })).data.error, 'invalid_version');
+  const filed = await staff('POST', 'attach', { drive_id: loose.id, song: id, kind: 'score', key: 'G', version: '前奏' });
+  assert.equal(filed.status, 201); assert.equal(filed.data.replaced, null);
+  assert.ok(drivePaths(env).includes('網站/詩歌庫/奇異恩典/樂譜（前奏）（G調）.pdf'));
+});
+
+test('tags: set on create and edit, kept when not sent, listed with counts, searchable', async () => {
+  const env = environment(); await asStaff(env);
+  const member = client(env, await cookieFor(env, 'member')), staff = client(env, await cookieFor(env, 'staff'));
+  assert.equal((await staff('POST', 'song', { title_zh: '甲', tags: '其他' })).data.error, 'invalid_tags');
+  assert.equal((await staff('POST', 'song', { title_zh: '甲', tags: ['1', '2', '3', '4', '5', '6'] })).data.error, 'invalid_tags');
+  const a = (await staff('POST', 'song', { title_zh: '平安', title_en: 'Peace', copyright: 'X', copyright_guess: false, note: '', tags: ['其他', ' 其他 '] })).data.song;
+  assert.deepEqual(a.tags, ['其他']);
+  const b = (await staff('POST', 'song', { title_zh: '讚美' })).data.song;
+  assert.deepEqual(b.tags, []);
+  await staff('POST', 'song', { title_zh: '鼓聲', tags: ['只有鼓譜', '其他'] });
+  const kept = await staff('PATCH', 'song', { id: a.id, note: '改了' });
+  assert.deepEqual(kept.data.song.tags, ['其他']);
+  const cleared = await staff('PATCH', 'song', { id: a.id, tags: [] });
+  assert.deepEqual(cleared.data.song.tags, []);
+  await staff('PATCH', 'song', { id: b.id, tags: ['其他'] });
+  const list = (await member('GET', 'list')).data;
+  assert.deepEqual(list.tags, [{ name: '其他', count: 2 }, { name: '只有鼓譜', count: 1 }]);
+  assert.deepEqual(list.songs.find(s => s.id === b.id).tags, ['其他']);
+  assert.deepEqual((await member('GET', 'list?q=' + encodeURIComponent('鼓譜'))).data.songs.map(s => s.title_zh), ['鼓聲']);
+  assert.deepEqual((await member('GET', 'list?q=' + encodeURIComponent('其他'))).data.songs.map(s => s.title_zh).sort(), ['讚美', '鼓聲'].sort());
+  assert.deepEqual((await member('GET', 'song?id=' + b.id)).data.song.tags, ['其他']);
 });
 
 test('permissions live in one function: 會友 view, 同工／管理員 edit, only 管理員 connects Drive', () => {
