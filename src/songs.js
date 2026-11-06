@@ -304,7 +304,10 @@ async function attach(ctx) {
 async function driveStatus(ctx) {
   const mode = driveMode(ctx.env), stored = await storedConnection(ctx.env), refresh = mode === 'google' || mode === 'fake' ? await refreshToken(ctx.env) : null;
   const out = { mode, connected: mode === 'fake' || !!refresh, source: refresh?.source || (mode === 'fake' ? 'fake' : null), picker: !!(ctx.env.GOOGLE_PICKER_API_KEY && ctx.env.GOOGLE_CLIENT_ID) };
-  if (ctx.access.admin) Object.assign(out, { email: stored?.email || null, connected_at: stored?.connected_at || null, canConnect: mode === 'fake' || (mode === 'google' && signingReady(ctx.env)) });
+  // With the GOOGLE_REFRESH_TOKEN secret nothing is stored, so ask Google which account it is.
+  let email = stored?.email || null;
+  if (ctx.access.admin && !email && refresh?.source === 'secret' && mode === 'google') { try { email = (await ctx.drive().about()).email; } catch {} }
+  if (ctx.access.admin) Object.assign(out, { email, connected_at: stored?.connected_at || null, canConnect: mode === 'fake' || (mode === 'google' && signingReady(ctx.env)) });
   return [out];
 }
 const signingReady = env => (env.PREVIEW_SESSION_SECRET || '').length >= 32;
