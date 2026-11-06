@@ -77,8 +77,19 @@
 @media (max-width:900px){
   .workspace .work-grid{grid-template-columns:1fr}
   .workspace .sidebar{position:static}
-  .workspace .side-nav{grid-template-columns:repeat(2,minmax(0,1fr));column-gap:16px}
+  .workspace .side-nav{grid-template-columns:repeat(2,minmax(0,1fr));column-gap:16px;min-width:0}
   .workspace .sidebar-note{display:none}
+}
+@media (max-width:400px){
+  .workspace .side-nav{column-gap:12px}
+  .workspace .side-nav a{font-size:14px;gap:7px}
+  .workspace .side-nav span{white-space:nowrap}
+  .workspace .side-nav .dev{font-size:10px;letter-spacing:0;padding:0 3px}
+}
+@media (max-width:360px){
+  .workspace .side-nav{column-gap:8px}
+  .workspace .side-nav a{font-size:13px;gap:5px;padding-left:2px;padding-right:2px}
+  .workspace .side-nav svg{width:18px;height:18px}
 }
 .workspace .ui-action{display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
 .workspace .ui-action .arr{width:16px;height:16px;flex:none;transition:transform .2s ease}
