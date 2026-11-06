@@ -80,6 +80,9 @@ export async function respond(request, env, files) {
  response.headers.set('X-Content-Type-Options','nosniff');
  response.headers.set('Referrer-Policy','no-referrer');
  const memberPage = memberPagePath(new URL(request.url).pathname) && response.status === 200;
- response.headers.set('Content-Security-Policy',"default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob:; font-src 'self' https://fonts.gstatic.com; connect-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; frame-src " + (memberPage ? 'https://docs.google.com' : "'none'"));
+ // The 肢體專區 page (one document for every member view) also allows Google Picker for the
+ // 詩歌庫: api.js from apis.google.com, the Picker iframe on docs.google.com / drive.google.com.
+ // Public pages keep script-src 'self' and no frames.
+ response.headers.set('Content-Security-Policy',"default-src 'self'; script-src 'self'" + (memberPage ? ' https://apis.google.com' : '') + "; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob:; font-src 'self' https://fonts.gstatic.com; connect-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; frame-src " + (memberPage ? 'https://docs.google.com https://drive.google.com' : "'none'"));
  return response;
 }

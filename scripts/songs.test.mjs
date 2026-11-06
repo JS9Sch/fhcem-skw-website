@@ -417,3 +417,62 @@ test('router: /api/songs/* behind the login, /members/songs/ still the member pa
   assert.equal((await respond(new Request(BASE + '/members/songs/', { headers: { Cookie: member } }), env, files)).status, 200);
   assert.equal((await respond(new Request(BASE + '/api/google/connect', { headers: { Cookie: member } }), env, files)).status, 403);
 });
+
+test('GET /api/songs/picker: 同工 only, needs the Picker settings and a Drive connection, no-store', async () => {
+  // Fake Drive: the page keeps its own demo picker.
+  const fake = environment(); await asStaff(fake);
+  assert.equal((await client(fake, await cookieFor(fake, 'member'))('GET', 'picker')).status, 403);
+  assert.equal((await client(fake, null)('GET', 'picker')).status, 401);
+  assert.deepEqual((await client(fake, await cookieFor(fake, 'staff'))('GET', 'picker')).data, { mode: 'fake' });
+  assert.equal((await client(fake, await cookieFor(fake, 'staff'))('GET', 'drive')).data.picker, true);
+  // Google mode.
+  const google = { SONGS_FAKE_DRIVE: '', GOOGLE_CLIENT_ID: 'client.apps.googleusercontent.com', GOOGLE_CLIENT_SECRET: 'not-a-secret' };
+  const call = async (env, role, fetcher) => {
+    const r = await songsApi(new Request(BASE + '/api/songs/picker', { headers: { Cookie: await cookieFor(env, role) } }), env, { now: NOW, fetcher });
+    return { status: r.status, headers: r.headers, data: await r.json() };
+  };
+  const g = mockGoogle();
+  // No API key / project number → not configured (even with a token secret).
+  for (const extra of [{}, { GOOGLE_PICKER_API_KEY: 'test-key' }, { GOOGLE_PROJECT_NUMBER: '123456789012' }, { GOOGLE_PICKER_API_KEY: 'test-key', GOOGLE_PROJECT_NUMBER: 'not-a-number' }]) {
+    const env = environment({ ...google, GOOGLE_REFRESH_TOKEN: 'r', ...extra }); await asStaff(env);
+    const r = await call(env, 'staff', g.fetcher);
+    assert.equal(r.status, 409); assert.equal(r.data.error, 'picker_not_configured');
+    assert.equal((await client(env, await cookieFor(env, 'staff'))('GET', 'drive')).data.picker, false);
+  }
+  const ready = { ...google, GOOGLE_PICKER_API_KEY: 'test-key', GOOGLE_PROJECT_NUMBER: '123456789012' };
+  // Settings but no refresh token → Drive not connected.
+  const bare = environment(ready); await asStaff(bare);
+  assert.equal((await call(bare, 'staff', g.fetcher)).data.error, 'drive_not_connected');
+  assert.equal((await call(bare, 'staff', g.fetcher)).status, 409);
+  // A refresh token Google no longer accepts → also not connected.
+  const revoked = environment({ ...ready, GOOGLE_REFRESH_TOKEN: 'revoked-' + randomBytes(4).toString('hex') }); await asStaff(revoked);
+  const bad = async () => new Response(JSON.stringify({ error: 'invalid_grant' }), { status: 400 });
+  assert.deepEqual([(await call(revoked, 'staff', bad)).status, (await call(revoked, 'staff', bad)).data.error], [409, 'drive_not_connected']);
+  // Connected: key, App ID, a short-lived token, the 網站／詩歌庫 folder once known.
+  const env = environment({ ...ready, GOOGLE_REFRESH_TOKEN: 'picker-' + randomBytes(4).toString('hex') }); await asStaff(env);
+  assert.equal((await call(env, 'member', g.fetcher)).status, 403);
+  const first = await call(env, 'admin', g.fetcher);
+  assert.equal(first.status, 200); assert.equal(first.headers.get('Cache-Control'), 'no-store');
+  assert.equal(first.data.apiKey, 'test-key'); assert.equal(first.data.appId, '123456789012'); assert.equal(first.data.mode, 'google');
+  assert.match(first.data.token, /^access-\d+$/); assert.ok(Date.parse(first.data.expiresAt) > Date.now() + 50 * 60000);
+  assert.equal(first.data.folderId, null);
+  await env.ATT_DB.prepare("INSERT INTO drive_folders (path, drive_id) VALUES ('網站/詩歌庫', 'folder-root-xxxxxx')").run();
+  const again = await call(env, 'staff', g.fetcher);
+  assert.equal(again.data.token, first.data.token); // reused within the isolate
+  assert.equal(again.data.folderId, 'folder-root-xxxxxx');
+  assert.equal((await client(env, await cookieFor(env, 'staff'))('GET', 'drive')).data.picker, true);
+  // Nothing about the token is written to D1.
+  assert.ok(!JSON.stringify(env.ATT_DB.raw.prepare('SELECT * FROM settings').all()).includes(first.data.token));
+});
+
+test('CSP: Google Picker sources only on the 肢體專區 page', async () => {
+  const env = environment(), files = { memberScript: 'js', memberHTML: '<html>' };
+  const member = await cookieFor(env, 'member');
+  const page = (await respond(new Request(BASE + '/members/songs/', { headers: { Cookie: member } }), env, files)).headers.get('Content-Security-Policy');
+  assert.match(page, /script-src 'self' https:\/\/apis\.google\.com;/);
+  assert.match(page, /frame-src https:\/\/docs\.google\.com https:\/\/drive\.google\.com$/);
+  const pub = (await respond(new Request(BASE + '/'), env, files)).headers.get('Content-Security-Policy');
+  assert.match(pub, /script-src 'self';/); assert.match(pub, /frame-src 'none'$/);
+  const api = (await respond(new Request(BASE + '/api/songs/list', { headers: { Cookie: member } }), env, files)).headers.get('Content-Security-Policy');
+  assert.ok(!api.includes('apis.google.com'));
+});

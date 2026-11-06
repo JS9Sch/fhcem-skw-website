@@ -3,7 +3,7 @@
 // 「連接 Google Drive」 button (OAuth, redirect /api/google/callback).
 import { authenticated } from './auth.js';
 import { roleName } from './unit-access.js';
-import { openDrive, driveMode, storedConnection, saveConnection, refreshToken, consentUrl, exchangeCode, DriveError, FOLDER_MIME } from './drive.js';
+import { openDrive, driveMode, storedConnection, saveConnection, refreshToken, accessGrant, consentUrl, exchangeCode, DriveError, FOLDER_MIME } from './drive.js';
 import { cleanTitle, cleanKey, cleanVersion, cleanTags, parseTags, folderName, sortSongs, searchSongs, searchForm, KINDS, ROOT_PATH, OLD_FOLDER, ORIGINALS_FOLDER, DELETED_FOLDER, fileName, oldName, deletedName, downloadName, disposition, MAX_UPLOAD, MAX_PHOTOS, isPdf, imageType, hasChinese } from './songs-core.js';
 
 // ---- the one place that decides who may do what (trial period, decisions Q13) ----
@@ -316,12 +316,28 @@ async function attach(ctx) {
 // ---- Google connection (status for 同工; connect for 管理員) ----
 async function driveStatus(ctx) {
   const mode = driveMode(ctx.env), stored = await storedConnection(ctx.env), refresh = mode === 'google' || mode === 'fake' ? await refreshToken(ctx.env) : null;
-  const out = { mode, connected: mode === 'fake' || !!refresh, source: refresh?.source || (mode === 'fake' ? 'fake' : null), picker: !!(ctx.env.GOOGLE_PICKER_API_KEY && ctx.env.GOOGLE_CLIENT_ID) };
+  const out = { mode, connected: mode === 'fake' || !!refresh, source: refresh?.source || (mode === 'fake' ? 'fake' : null), picker: mode === 'fake' || (mode === 'google' && pickerReady(ctx.env)) };
   // With the GOOGLE_REFRESH_TOKEN secret nothing is stored, so ask Google which account it is.
   let email = stored?.email || null;
   if (ctx.access.admin && !email && refresh?.source === 'secret' && mode === 'google') { try { email = (await ctx.drive().about()).email; } catch {} }
   if (ctx.access.admin) Object.assign(out, { email, connected_at: stored?.connected_at || null, canConnect: mode === 'fake' || (mode === 'google' && signingReady(ctx.env)) });
   return [out];
+}
+const pickerReady = env => !!(env.GOOGLE_PICKER_API_KEY && /^\d{6,20}$/.test(env.GOOGLE_PROJECT_NUMBER || ''));
+// GET /api/songs/picker — what the browser needs to open Google Picker: the API key (Picker
+// API only, website-restricted), the App ID (Cloud project number), a short-lived drive.file
+// access token, and the 網站／詩歌庫 folder to open first. Files picked there become visible to
+// the website's drive.file access; the page then sends their ids to POST /api/songs/scan.
+async function picker(ctx) {
+  const mode = driveMode(ctx.env);
+  if (mode === 'fake') return [{ mode: 'fake' }];
+  if (mode !== 'google' || !pickerReady(ctx.env)) fail(409, 'picker_not_configured');
+  if (!await refreshToken(ctx.env)) fail(409, 'drive_not_connected');
+  let grant;
+  try { grant = await accessGrant(ctx.env, ctx.fetcher, { minLeft: 10 * 60000 }); }
+  catch (e) { if (e instanceof DriveError && e.code === 'drive_not_connected') fail(409, 'drive_not_connected'); throw e; }
+  const folder = await db(ctx.env).prepare('SELECT drive_id FROM drive_folders WHERE path = ?').bind(ROOT_PATH.join('/')).first();
+  return [{ mode: 'google', apiKey: ctx.env.GOOGLE_PICKER_API_KEY, appId: ctx.env.GOOGLE_PROJECT_NUMBER, token: grant.token, expiresAt: new Date(grant.expires).toISOString(), folderId: folder?.drive_id || null }];
 }
 const signingReady = env => (env.PREVIEW_SESSION_SECRET || '').length >= 32;
 
@@ -329,9 +345,9 @@ const ROUTES = {
   list: { GET: listSongs }, song: { GET: getSong, POST: createSong, PATCH: editSong, DELETE: deleteSong },
   upload: { POST: upload }, original: { POST: original }, file: { DELETE: deleteFile }, restore: { POST: restoreFile },
   pdf: { GET: ctx => servePdf(ctx, false) }, download: { GET: ctx => servePdf(ctx, true) },
-  scan: { GET: scan, POST: scanPicked }, attach: { POST: attach }, drive: { GET: driveStatus },
+  scan: { GET: scan, POST: scanPicked }, attach: { POST: attach }, drive: { GET: driveStatus }, picker: { GET: picker },
 };
-const EDIT = new Set(['upload', 'original', 'file', 'restore', 'scan', 'attach', 'drive']);
+const EDIT = new Set(['upload', 'original', 'file', 'restore', 'scan', 'attach', 'drive', 'picker']);
 const RAW_BODY = new Set(['upload', 'original']);
 const NEEDS_DRIVE = new Set(['upload', 'original', 'file', 'restore', 'pdf', 'download', 'scan', 'attach']);
 
@@ -350,7 +366,7 @@ export async function songsApi(request, env, { now = Date.now(), fetcher = globa
     const editing = EDIT.has(name) || (name === 'song' && method !== 'GET');
     if (editing && !access.edit) return reply(request, { error: 'forbidden' }, 403);
     let drive;
-    const ctx = { request, env, url, now, session, access, waitUntil, body: null, drive: () => drive || (drive = openDrive(env, fetcher)) };
+    const ctx = { request, env, url, now, session, access, waitUntil, fetcher, body: null, drive: () => drive || (drive = openDrive(env, fetcher)) };
     if (NEEDS_DRIVE.has(name) && !ctx.drive()) return reply(request, { error: 'drive_not_connected' }, 503);
     if (method !== 'GET' && !RAW_BODY.has(name)) ctx.body = await readJson(request);
     const result = await handler(ctx);

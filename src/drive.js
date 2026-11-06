@@ -81,17 +81,22 @@ export class DriveError extends Error { constructor(code, status = 502) { super(
 
 // Access tokens live about an hour; keep one per isolate.
 const tokens = new Map();
-async function accessToken(env, fetcher, force = false) {
+// accessGrant also hands the token to Google Picker in the browser (GET /api/songs/picker):
+// same drive.file scope, kept only in this isolate's memory, never in D1. minLeft: a token
+// with less time left than this (ms) is replaced first.
+export async function accessGrant(env, fetcher = globalThis.fetch, { force = false, minLeft = 60000 } = {}) {
   const refresh = await refreshToken(env);
   if (!refresh) throw new DriveError('drive_not_connected', 503);
   const cached = tokens.get(refresh.token);
-  if (!force && cached && cached.expires > Date.now() + 60000) return cached.token;
+  if (!force && cached && cached.expires > Date.now() + minLeft) return cached;
   const r = await fetcher('https://oauth2.googleapis.com/token', form({ client_id: env.GOOGLE_CLIENT_ID, client_secret: env.GOOGLE_CLIENT_SECRET, refresh_token: refresh.token, grant_type: 'refresh_token' }));
   const data = await r.json().catch(() => ({}));
   if (!r.ok || !data.access_token) throw new DriveError(data.error === 'invalid_grant' ? 'drive_not_connected' : 'drive_unavailable', 503);
-  tokens.set(refresh.token, { token: data.access_token, expires: Date.now() + (data.expires_in || 3600) * 1000 });
-  return data.access_token;
+  const grant = { token: data.access_token, expires: Date.now() + (data.expires_in || 3600) * 1000 };
+  tokens.set(refresh.token, grant);
+  return grant;
 }
+const accessToken = async (env, fetcher, force = false) => (await accessGrant(env, fetcher, { force })).token;
 
 export function googleDrive(env, fetcher = globalThis.fetch) {
   const API = 'https://www.googleapis.com/drive/v3', UPLOAD = 'https://www.googleapis.com/upload/drive/v3';

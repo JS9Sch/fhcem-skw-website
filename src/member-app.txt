@@ -478,7 +478,7 @@ function attSettings(view){
 // (a PDF, or up to 10 phone photos joined into one PDF in this browser), replace, delete
 // (moved to 已刪除 on Drive, never erased) and match files found by 重新掃描 Drive.
 const SONG_API='/api/songs/',SONG_NOTICE='只供本堂聚會及練習使用，請勿外傳。';
-const SONG_ERR={authentication_required:'登入已過期，請重新登入。',forbidden:'只有傳道同工或網站管理員可以修改詩歌庫。',song_not_found:'找不到這首歌。',file_not_found:'找不到這個檔案。',title_required:'請填寫中文歌名或英文歌名。',invalid_title_zh:'中文歌名要有中文字；只有英文歌名請填在「英文歌名」。',invalid_title_en:'英文歌名太長。',duplicate_title:'詩歌庫已有這首歌。',invalid_key:'調不正確。',invalid_kind:'請選樂譜或鼓譜。',invalid_version:'版本名稱不正確（最多 16 字，不可有斜線）。',invalid_tags:'標籤不正確：最多 5 個，每個 1 至 12 字。',not_pdf:'檔案不是 PDF。',not_image:'相片格式不支援（可用 JPEG、PNG、HEIC）。',too_large:'檔案超過 20 MB 上限。',too_many_photos:'最多 10 張相片。',drive_not_connected:'網站未連接教會的 Google Drive，請網站管理員到「管理」連接。',drive_unavailable:'Google Drive 暫時未能使用，請稍後再試。',drive_file_missing:'Google Drive 上找不到這個檔案。',already_filed:'這個檔案已在詩歌庫。',unavailable:'詩歌庫暫時未能使用，請稍後再試。',offline:'網絡未連接，請稍後再試。'};
+const SONG_ERR={authentication_required:'登入已過期，請重新登入。',forbidden:'只有傳道同工或網站管理員可以修改詩歌庫。',song_not_found:'找不到這首歌。',file_not_found:'找不到這個檔案。',title_required:'請填寫中文歌名或英文歌名。',invalid_title_zh:'中文歌名要有中文字；只有英文歌名請填在「英文歌名」。',invalid_title_en:'英文歌名太長。',duplicate_title:'詩歌庫已有這首歌。',invalid_key:'調不正確。',invalid_kind:'請選樂譜或鼓譜。',invalid_version:'版本名稱不正確（最多 16 字，不可有斜線）。',invalid_tags:'標籤不正確：最多 5 個，每個 1 至 12 字。',not_pdf:'檔案不是 PDF。',not_image:'相片格式不支援（可用 JPEG、PNG、HEIC）。',too_large:'檔案超過 20 MB 上限。',too_many_photos:'最多 10 張相片。',drive_not_connected:'網站未連接教會的 Google Drive，請網站管理員到「管理」連接。',drive_unavailable:'Google Drive 暫時未能使用，請稍後再試。',drive_file_missing:'Google Drive 上找不到這個檔案。',already_filed:'這個檔案已在詩歌庫。',picker_not_configured:'未設定 Google Picker。',unavailable:'詩歌庫暫時未能使用，請稍後再試。',offline:'網絡未連接，請稍後再試。'};
 const songErr=code=>SONG_ERR[code]||'未能完成，請稍後再試。';
 const SONG_KEYS=['C','D♭','D','E♭','E','F','F♯','G','A♭','A','B♭','B','Cm','C♯m','Dm','Em','Fm','F♯m','Gm','Am','B♭m','Bm'];
 const SONG_VERSIONS=['簡譜','鋼琴','前奏','和弦','和音'],SONG_TAGS=['只有鼓譜','其他'];
@@ -779,15 +779,60 @@ async function sgAdmin(root,sequence){
  </section>
  <section class="panel" aria-labelledby="sg-scan-title"><h2 class="att-h2" id="sg-scan-title">重新掃描 Drive</h2>
  <p class="att-help">網站只看到自己建立、或用 Google Picker 選取的檔案。直接放在「網站／詩歌庫」的 PDF，或用 Picker 選取的 PDF，會在這裏列出，選歌後歸入詩歌庫。</p>
- <div class="att-actions"><button type="button" class="att-btn" id="sg-scan">重新掃描 Drive</button><button type="button" class="att-btn" id="sg-picker">${fake?'從 Drive 選取檔案（示範）':'用 Google Picker 選取檔案'}</button></div>
- <p class="att-help" id="sg-picker-note" hidden></p>
+ <div class="att-actions"><button type="button" class="att-btn" id="sg-scan">重新掃描 Drive</button><button type="button" class="att-btn" id="sg-picker">${fake?'從 Drive 選取檔案（示範）':'從 Drive 選取檔案'}</button></div>
+ <p class="att-help" id="sg-picker-note"${fake||d.picker?' hidden':''}>${fake||d.picker?'':'未設定 Google Picker：網站管理員要在 Worker 設定 GOOGLE_PICKER_API_KEY 及 GOOGLE_PROJECT_NUMBER。'}</p>
  <div id="sg-scan-result" aria-live="polite"></div></section>`;
  $('#sg-scan').addEventListener('click',async e=>{const b=e.currentTarget;b.disabled=true;const x=await sgFetch('scan');b.disabled=false;if(!x.ok){toast(songErr(x.data.error));return}sgScanList(x.data.files,'掃描完成')});
  $('#sg-picker').addEventListener('click',async()=>{
-  if(!fake){const n=$('#sg-picker-note');n.hidden=false;n.textContent=d.picker?'Google Picker 未啟用（第一版只有介面）。':'未設定 Google Picker：要先在 Google Cloud 建立 API key 及 App ID，再設為 Worker secret GOOGLE_PICKER_API_KEY。';return}
+  if(!fake){sgGooglePicker($('#sg-picker'));return}
   const x=await sgFetch('scan');if(!x.ok){toast(songErr(x.data.error));return}
   sgFakePicker(x.data.files);
  });
+}
+// Google Picker: api.js is loaded only when first pressed. The website's access is drive.file,
+// so it sees a PDF someone put in Drive only after it is picked here; the ids then go to
+// POST /api/songs/scan and on to the usual 「歸入」 list.
+let sgGapi=null;
+function sgLoadPicker(){
+ if(window.google?.picker)return Promise.resolve();
+ if(!sgGapi)sgGapi=new Promise((ok,no)=>{
+  const s=document.createElement('script');s.src='https://apis.google.com/js/api.js';s.async=true;
+  const t=setTimeout(()=>no(new Error('timeout')),20000);
+  s.onerror=()=>{clearTimeout(t);no(new Error('load'))};
+  s.onload=()=>{if(!window.gapi){clearTimeout(t);no(new Error('load'));return}gapi.load('picker',{callback:()=>{clearTimeout(t);ok()},onerror:()=>{clearTimeout(t);no(new Error('load'))},timeout:20000,ontimeout:()=>{clearTimeout(t);no(new Error('timeout'))}})};
+  document.head.append(s);
+ }).catch(e=>{sgGapi=null;throw e});
+ return sgGapi;
+}
+async function sgGooglePicker(btn){
+ const note=$('#sg-picker-note'),say=t=>{note.hidden=!t;note.textContent=t||''};
+ const phone=matchMedia('(max-width: 700px), (pointer: coarse)').matches;
+ say(phone?'正在開啟 Google Picker…（手機上 Picker 可能不好用，建議用電腦。）':'正在開啟 Google Picker…');
+ btn.disabled=true;
+ try{
+  const x=await sgFetch('picker');
+  if(!x.ok){say(x.data.error==='picker_not_configured'?'未設定 Google Picker：網站管理員要在 Worker 設定 GOOGLE_PICKER_API_KEY 及 GOOGLE_PROJECT_NUMBER。':songErr(x.data.error));return}
+  try{await sgLoadPicker()}catch{say('未能載入 Google Picker：請檢查網絡，或稍後再試。');return}
+  const g=x.data,P=google.picker;
+  const view=new P.DocsView(P.ViewId.DOCS).setMimeTypes('application/pdf').setIncludeFolders(true).setSelectFolderEnabled(false).setMode(P.DocsViewMode.LIST);
+  if(g.folderId)view.setParent(g.folderId);
+  const picked=await new Promise(done=>{
+   new P.PickerBuilder().addView(view).enableFeature(P.Feature.MULTISELECT_ENABLED).setMaxItems(30)
+    .setOAuthToken(g.token).setDeveloperKey(g.apiKey).setAppId(g.appId).setOrigin(location.origin).setLocale('zh-HK')
+    .setTitle('選取詩歌庫 PDF（最多 30 個）')
+    .setCallback(r=>{const a=r[P.Response.ACTION];if(a===P.Action.PICKED)done((r[P.Response.DOCUMENTS]||[]).map(f=>f[P.Document.ID]));else if(a===P.Action.CANCEL)done(null);else if(a==='error')done('error')})
+    .build().setVisible(true);
+  });
+  if(picked==='error'){say('Google Picker 出錯：可能授權已過期，請再按一次「從 Drive 選取檔案」。');return}
+  if(!picked){say('已取消選取。');return}
+  if(!picked.length){say('沒有選取檔案。');return}
+  say('正在檢查選取的檔案…');
+  const r=await sgFetch('scan',{method:'POST',body:{ids:picked.slice(0,30)}});
+  if(!r.ok){say(r.data.error==='invalid_ids'?'選取的檔案不正確（最多 30 個）。':songErr(r.data.error));return}
+  say(r.data.files.length<picked.length?'已略過已在詩歌庫或不是 PDF 的檔案。':'');
+  sgScanList(r.data.files,'已選取');
+ }catch(e){if(e instanceof AttStop)return;say('Google Picker 出錯，請再試一次；手機上不好用時建議改用電腦。')}
+ finally{btn.disabled=false}
 }
 // Local stand-in for Google Picker: choose from the fake Drive's loose files.
 function sgFakePicker(list){
