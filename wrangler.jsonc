@@ -8,6 +8,16 @@
     "bindings": [{ "name": "SESSIONS", "class_name": "PreviewSession" }]
   },
   "migrations": [{ "tag": "session-v1", "new_sqlite_classes": ["PreviewSession"] }],
+  "d1_databases": [
+    {
+      "binding": "ATT_DB",
+      "database_name": "fhcem-skw-attendance",
+      // PLACEHOLDER: replaced at deploy with the id from `wrangler d1 create fhcem-skw-attendance`.
+      // Local `wrangler dev` and `--dry-run` work with this value; a real deploy does not.
+      "database_id": "00000000-0000-0000-0000-000000000000",
+      "migrations_dir": "migrations"
+    }
+  ],
   "assets": {
     "directory": "./public",
     "binding": "ASSETS",
