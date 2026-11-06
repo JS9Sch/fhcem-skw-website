@@ -176,7 +176,14 @@ try:
         expect(sp.locator('.att-tabs a')).to_have_text(['點名', '過去聚會', '名單', '月訊表', '統計', '點名連結', '設定'])
         link = make_link(sp, 'paul')
         shot(sp, 'links-1440.png')
-        checks.append('同工 sign in with the 同工 password (case and spaces ignored), kept 90 days; make 保羅團 link (shown once)')
+        # Show the link again later (a fresh page): the same link, with copy.
+        tab(sp, 'links')
+        li = sp.locator('.att-codes li[data-target="paul"]')
+        expect(sp.locator('.att-codes li[data-target="david"] [data-link-show]')).to_be_hidden()
+        li.locator('[data-link-show]').click()
+        expect(li.locator('.att-link-value')).to_have_value(link)
+        shot(sp, 'links-show-1440.png')
+        checks.append('同工 sign in with the 同工 password (case and spaces ignored), kept 90 days; make 保羅團 link, show it again later')
 
         # A plain member sees how to get in, not a code form.
         mctx = context(browser, 390, 844); assert login(mctx, password) == 'member'; mp = new_page(mctx)

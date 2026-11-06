@@ -160,6 +160,28 @@ export function newLinkToken() {
   return btoa(String.fromCharCode(...bytes)).replace(/\+/g, '-').replace(/\//g, '_');
 }
 export const validLinkToken = t => typeof t === 'string' && /^[A-Za-z0-9_-]{32}$/.test(t);
+// 同工 may show a link again, so the token is also kept encrypted: AES-GCM with a key derived
+// (HKDF) from the Worker secret and bound to the group id. The database alone cannot reveal
+// a link; rotating the secret makes old copies unreadable (同工 then reset the link).
+async function linkKey(secret) {
+  const base = await crypto.subtle.importKey('raw', new TextEncoder().encode(secret), 'HKDF', false, ['deriveKey']);
+  return crypto.subtle.deriveKey({ name: 'HKDF', hash: 'SHA-256', salt: new Uint8Array(0), info: new TextEncoder().encode('fhcem-attendance-link-v1') },
+    base, { name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']);
+}
+const b64u = bytes => btoa(String.fromCharCode(...bytes)).replace(/\+/g, '-').replace(/\//g, '_');
+const unb64u = text => Uint8Array.from(atob(text.replace(/-/g, '+').replace(/_/g, '/')), c => c.charCodeAt(0));
+export async function sealLink(token, secret, group) {
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const data = await crypto.subtle.encrypt({ name: 'AES-GCM', iv, additionalData: new TextEncoder().encode(group) }, await linkKey(secret), new TextEncoder().encode(token));
+  return b64u(iv) + '.' + b64u(new Uint8Array(data));
+}
+export async function unsealLink(sealed, secret, group) {
+  try {
+    const [iv, data] = String(sealed).split('.').map(unb64u);
+    const token = new TextDecoder().decode(await crypto.subtle.decrypt({ name: 'AES-GCM', iv, additionalData: new TextEncoder().encode(group) }, await linkKey(secret), data));
+    return validLinkToken(token) ? token : null;
+  } catch { return null; }
+}
 export async function linkHash(token) {
   const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(token));
   return Array.from(new Uint8Array(digest), b => b.toString(16).padStart(2, '0')).join('');

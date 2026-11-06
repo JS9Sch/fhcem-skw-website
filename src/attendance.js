@@ -5,7 +5,7 @@
 // fields are updated one by one (PUT meeting), so people marking together do not
 // overwrite each other.
 import { authenticated } from './auth.js';
-import { hkToday, validDate, validMonth, addDays, daysBetween, onRule, lastScheduled, currentScheduled, altDates, isMoved, nearbyDates, total, membersPresent, monthTable, monthTitle, tableCsv, cleanName, validCount, validStatus, normalizeCode, generateCode, newLinkToken, validLinkToken, linkHash } from './attendance-core.js';
+import { hkToday, validDate, validMonth, addDays, daysBetween, onRule, lastScheduled, currentScheduled, altDates, isMoved, nearbyDates, total, membersPresent, monthTable, monthTitle, tableCsv, cleanName, validCount, validStatus, normalizeCode, generateCode, newLinkToken, validLinkToken, linkHash, sealLink, unsealLink } from './attendance-core.js';
 import { linkCookie, clearLinkCookie, readLink, newCodeHash, adminHash, staffPassword, staffSalt, signingReady, covers, isStaff, roleName } from './unit-access.js';
 
 class Fail extends Error { constructor(status, code) { super(code); this.status = status; this.code = code; } }
@@ -294,14 +294,24 @@ async function stats(ctx) {
   return [{ group: publicGroup(g, false), year, meetings, months, count: regular.length, average: regular.length ? Math.round(regular.reduce((s, m) => s + m.total, 0) / regular.length * 10) / 10 : null, new_friends: regular.reduce((s, m) => s + m.new_friends, 0) }];
 }
 
-// 同工 and admin make or reset a group's roll-call link. The token is returned once and
-// only its SHA-256 is kept; the old link and every phone holding it stop at once.
+// 同工 and admin make or reset a group's roll-call link; the old link and every phone holding
+// it stop at once. The SHA-256 finds the group; the encrypted copy lets 同工 show it again.
 async function resetLink(ctx) {
   if (!isStaff(ctx.role)) fail(403, 'forbidden');
   const g = await allowedGroup(ctx, ctx.body.group, 'fellowship');
   const token = newLinkToken();
-  await db(ctx.env).prepare('UPDATE groups SET link_hash = ?, link_version = link_version + 1 WHERE id = ?').bind(await linkHash(token), g.id).run();
+  await db(ctx.env).prepare('UPDATE groups SET link_hash = ?, link_secret = ?, link_version = link_version + 1 WHERE id = ?')
+    .bind(await linkHash(token), await sealLink(token, ctx.env.PREVIEW_SESSION_SECRET, g.id), g.id).run();
   return [{ group: g.id, token, version: g.link_version + 1 }];
+}
+// 同工 and admin show a group's current link again (to resend it). Never cached.
+async function showLink(ctx) {
+  if (!isStaff(ctx.role)) fail(403, 'forbidden');
+  const g = await allowedGroup(ctx, ctx.url.searchParams.get('group'), 'fellowship');
+  if (!g.link_hash) fail(404, 'no_link');
+  const token = g.link_secret && await unsealLink(g.link_secret, ctx.env.PREVIEW_SESSION_SECRET, g.id);
+  if (!token || await linkHash(token) !== g.link_hash) fail(409, 'link_unreadable');
+  return [{ group: g.id, token, version: g.link_version }];
 }
 // Admin sets the one shared 同工 password (random if none given). Shown once; changing it
 // signs every 同工 phone out.
@@ -329,7 +339,7 @@ const ROUTES = {
   meeting: { GET: getMeeting, PUT: putMeeting }, mark: { PUT: putMark }, history: { GET: history },
   members: { GET: listMembers, POST: addMember, PATCH: editMember },
   report: { GET: report }, 'report.csv': { GET: reportCsv }, stats: { GET: stats },
-  links: { POST: resetLink }, 'staff-password': { POST: setStaffPassword }, group: { PATCH: editGroup },
+  links: { GET: showLink, POST: resetLink }, 'staff-password': { POST: setStaffPassword }, group: { PATCH: editGroup },
 };
 const ANONYMOUS = new Set(['link', 'forget']); // opening a link needs no login
 const NO_ROLE = new Set(['me']);              // a plain 會友 may ask what they can do

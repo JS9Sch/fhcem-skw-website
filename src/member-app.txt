@@ -397,8 +397,8 @@ async function attStats(view,sequence){
 
 // ----- 同工: links and settings -----
 const attLinkUrl=token=>`${location.origin}/attendance/#${token}`;
-function attOnce(box,label,value,{copyLabel,copied,share}){
- box.innerHTML=`<div class="att-code-result att-link-result" role="status"><p>${label}</p><input class="att-link-value" id="att-once-value" readonly value="${esc(value)}" aria-label="${esc(label)}"><div class="att-actions"><button type="button" class="att-btn primary" data-copy>${copyLabel}</button>${share&&navigator.share?'<button type="button" class="att-btn" data-share>分享…</button>':''}<button type="button" class="att-btn" data-done>完成</button></div><p class="att-help">只會顯示這一次。</p></div>`;
+function attOnce(box,label,value,{copyLabel,copied,share,note='只會顯示這一次。'}){
+ box.innerHTML=`<div class="att-code-result att-link-result" role="status"><p>${label}</p><input class="att-link-value" id="att-once-value" readonly value="${esc(value)}" aria-label="${esc(label)}"><div class="att-actions"><button type="button" class="att-btn primary" data-copy>${copyLabel}</button>${share&&navigator.share?'<button type="button" class="att-btn" data-share>分享…</button>':''}<button type="button" class="att-btn" data-done>完成</button></div><p class="att-help">${note}</p></div>`;
  const input=box.querySelector('input');input.addEventListener('focus',()=>input.select());
  box.querySelector('[data-copy]').addEventListener('click',async()=>{try{await navigator.clipboard.writeText(value);toast(copied)}catch{input.focus();input.select();toast('未能自動複製，請長按選取後複製')}});
  box.querySelector('[data-share]')?.addEventListener('click',async()=>{try{await navigator.share(share)}catch{}});
@@ -408,8 +408,19 @@ function attLinks(view){
  const list=attGroups(['fellowship']);
  view.innerHTML=`<section class="panel" aria-labelledby="att-links-title"><h2 class="att-h2" id="att-links-title">點名連結</h2>
  <p class="att-help">每個團契有一條點名連結，請發到該團的群組。團友在手機按一次連結，就可以為該團點名、改期、取消、修改名單及查看該團的月訊行和統計，不用肢體專區密碼；手機會記住 90 日。連結不會自動過期。每次經連結的修改都會記下「團名連結」。</p>
- <p class="att-help"><b>重設</b>後，舊連結及所有記住舊連結的手機即時失效，要把新連結再發到團契群組。新連結只顯示一次；如遺失，請重設。</p>
- <ul class="att-codes">${list.map(g=>`<li data-target="${g.id}"><div class="att-code-line"><span class="att-name">${esc(g.name)}</span><span class="att-code-state${g.hasLink?' ok':''}">${g.hasLink?'已有連結':'未有連結'}</span><button type="button" class="att-btn" data-link-reset>${g.hasLink?'重設連結':'建立連結'}</button></div></li>`).join('')}</ul></section>`;
+ <p class="att-help">要再發連結，按<b>顯示連結</b>。如連結發錯地方或外洩，按<b>重設</b>：舊連結及所有記住舊連結的手機即時失效，要把新連結再發到團契群組。</p>
+ <ul class="att-codes">${list.map(g=>`<li data-target="${g.id}"><div class="att-code-line"><span class="att-name">${esc(g.name)}</span><span class="att-code-state${g.hasLink?' ok':''}">${g.hasLink?'已有連結':'未有連結'}</span><button type="button" class="att-btn" data-link-show${g.hasLink?'':' hidden'}>顯示連結</button><button type="button" class="att-btn" data-link-reset>${g.hasLink?'重設連結':'建立連結'}</button></div></li>`).join('')}</ul></section>`;
+ const linkBox=(li,g,token,fresh)=>{view.querySelectorAll('.att-link-result').forEach(x=>x.parentElement.remove());const box=document.createElement('div');li.append(box);
+  attOnce(box,`${g.name}的點名連結${fresh?'（新）':''}：`,attLinkUrl(token),{copyLabel:'複製連結',copied:'已複製點名連結',note:'同工可隨時再按「顯示連結」查看。',share:{title:`${g.name}點名`,text:`${g.name}點名連結（只供團友使用，請勿轉發到團外）`,url:attLinkUrl(token)}})};
+ view.querySelectorAll('[data-link-show]').forEach(b=>b.addEventListener('click',async()=>{
+  const li=b.closest('li'),g=list.find(x=>x.id===li.dataset.target);
+  b.disabled=true;
+  try{const r=await attFetch('links?group='+encodeURIComponent(g.id));
+   if(!r.ok){toast(r.data.error==='link_unreadable'?'這條連結未能顯示，請按「重設連結」建立新連結。':attErr(r.data.error));return}
+   linkBox(li,g,r.data.token,false);
+  }catch(err){if(!(err instanceof AttStop))toast('網絡未連接，請稍後再試。')}
+  finally{b.disabled=false}
+ }));
  view.querySelectorAll('[data-link-reset]').forEach(b=>b.addEventListener('click',async()=>{
   const li=b.closest('li'),g=list.find(x=>x.id===li.dataset.target);
   if(g.hasLink&&!confirm(`重設「${g.name}」的點名連結？舊連結及記住舊連結的手機會即時失效，要把新連結再發到團契群組。`))return;
@@ -417,9 +428,8 @@ function attLinks(view){
   b.disabled=true;
   try{const r=await attFetch('links',{method:'POST',body:{group:g.id}});
    if(!r.ok){toast(attErr(r.data.error));return}
-   g.hasLink=true;li.querySelector('.att-code-state').textContent='已有連結';li.querySelector('.att-code-state').classList.add('ok');b.textContent='重設連結';
-   const box=document.createElement('div');li.append(box);
-   attOnce(box,`${g.name}的點名連結：`,attLinkUrl(r.data.token),{copyLabel:'複製連結',copied:'已複製點名連結',share:{title:`${g.name}點名`,text:`${g.name}點名連結（只供團友使用，請勿轉發到團外）`,url:attLinkUrl(r.data.token)}});
+   g.hasLink=true;li.querySelector('.att-code-state').textContent='已有連結';li.querySelector('.att-code-state').classList.add('ok');b.textContent='重設連結';li.querySelector('[data-link-show]').hidden=false;
+   linkBox(li,g,r.data.token,true);
   }catch(err){if(!(err instanceof AttStop))toast('網絡未連接，請稍後再試。')}
   finally{b.disabled=false}
  }));

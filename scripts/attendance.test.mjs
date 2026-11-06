@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createHash, randomBytes } from 'node:crypto';
 import { DatabaseSync } from 'node:sqlite';
-import { scheduledDates, weekOfMonth, lastScheduled, currentScheduled, altDates, isMoved, nearbyDates, monthTable, tableCsv, monthTitle, cleanName, normalizeCode, generateCode, total, hkToday, newLinkToken, validLinkToken } from '../src/attendance-core.js';
+import { scheduledDates, weekOfMonth, lastScheduled, currentScheduled, altDates, isMoved, nearbyDates, monthTable, tableCsv, monthTitle, cleanName, normalizeCode, generateCode, total, hkToday, newLinkToken, validLinkToken, unsealLink } from '../src/attendance-core.js';
 import { newCodeHash, readLink, LINK_COOKIE, LINK_SECONDS } from '../src/unit-access.js';
 import { attendanceApi } from '../src/attendance.js';
 import { sessionCookie, COOKIE } from '../src/auth.js';
@@ -232,7 +232,18 @@ test('roll-call links: open without login, only that group, reset stops old phon
   const link = await a.call('POST', 'links', { group: 'paul' });
   assert.equal(link.status, 200); assert(validLinkToken(link.body.token)); assert.equal(link.body.version, 1);
   assert.equal((await a.call('GET', 'me')).body.groups.find(g => g.id === 'paul').hasLink, true);
-  assert.equal(env.ATT_DB.raw.prepare("SELECT link_hash FROM groups WHERE id = 'paul'").get().link_hash.length, 64); // only the hash is stored
+  const row = env.ATT_DB.raw.prepare("SELECT link_hash, link_secret FROM groups WHERE id = 'paul'").get();
+  assert.equal(row.link_hash.length, 64); assert(!row.link_secret.includes(link.body.token)); // hash + encrypted copy, never the token itself
+  // 同工 and admin can show the current link again; nobody else can.
+  assert.equal((await a.call('GET', 'links?group=paul')).body.token, link.body.token);
+  assert.equal((await a.call('GET', 'links?group=david')).body.error, 'no_link');
+  assert.equal((await client(env).call('GET', 'links?group=paul')).status, 401);
+  const plain = client(env); await plain.member();
+  assert.equal((await plain.call('GET', 'links?group=paul')).status, 403);
+  // The encrypted copy is bound to its group and to the Worker secret.
+  assert.equal(await unsealLink(row.link_secret, env.PREVIEW_SESSION_SECRET, 'david'), null);
+  assert.equal(await unsealLink(row.link_secret, 'another-secret', 'paul'), null);
+  assert.equal(await unsealLink(row.link_secret, env.PREVIEW_SESSION_SECRET, 'paul'), link.body.token);
   assert.equal((await a.call('POST', 'links', { group: 'sun-worship' })).body.error, 'wrong_group_kind');
   // Wrong or malformed tokens.
   const stranger = client(env);
@@ -272,6 +283,8 @@ test('roll-call links: open without login, only that group, reset stops old phon
   const s = await staffClient(env, a);
   const reset = await s.call('POST', 'links', { group: 'paul' });
   assert.equal(reset.body.version, 2);
+  assert.equal((await s.call('GET', 'links?group=paul')).body.token, reset.body.token); // shows the new link
+  assert.equal((await h.call('GET', 'links?group=paul')).status, 401); // the link phone was signed out by the reset
   assert.equal((await h.call('GET', 'me')).status, 401);
   assert.equal((await h.page('GET', '/members/attendance/')).status, 200); // page shell only; the API says the link is gone
   assert.equal((await client(env).call('POST', 'link', { token: link.body.token })).body.error, 'invalid_link');

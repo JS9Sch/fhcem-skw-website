@@ -1,7 +1,8 @@
 -- Attendance (團契點名) for 筲箕灣堂. Binding ATT_DB.
 -- Members are stored by the short name used inside their group only:
 -- no full names, phone numbers or birthdays. Each fellowship has one roll-call
--- link; only the SHA-256 of its random token is stored. The shared 同工 password
+-- link; the SHA-256 of its random token finds the group, and an AES-GCM copy (key from
+-- the Worker secret) lets 同工 show the link again. The shared 同工 password
 -- is a PBKDF2 hash in settings.
 
 CREATE TABLE groups (
@@ -13,6 +14,7 @@ CREATE TABLE groups (
   sort INTEGER NOT NULL,              -- row order in 《月訊》
   record_mode TEXT NOT NULL DEFAULT 'names' CHECK (record_mode IN ('names', 'count')), -- 記名 or 只記人數
   link_hash TEXT UNIQUE,              -- SHA-256 hex of the roll-call link token; NULL = no link yet
+  link_secret TEXT,                   -- the token, AES-GCM encrypted (iv.ciphertext, base64url); unreadable without the Worker secret
   link_version INTEGER NOT NULL DEFAULT 0, -- +1 on every reset, so phones holding the old link stop at once
   active INTEGER NOT NULL DEFAULT 1 CHECK (active IN (0, 1))
 );
