@@ -11,8 +11,9 @@
   "d1_databases": [
     {
       "binding": "ATT_DB",
-      "database_name": "fhcem-skw-attendance",
-      "database_id": "10e04db1-31ae-4c71-873e-1b9d393ca041",
+      "database_name": "fhcem-skw-attendance-hk",
+      // APAC primary (Hong Kong users). The first database (ENAM) made every query cross the Pacific.
+      "database_id": "83730595-2dc9-4be5-8f77-4a89bca102ae",
       "migrations_dir": "migrations"
     }
   ],

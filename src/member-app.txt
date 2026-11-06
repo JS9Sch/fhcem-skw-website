@@ -524,6 +524,14 @@ async function exportPpt(){const btn=$('#export-ppt');btn.disabled=true;btn.text
 $('.skip').addEventListener('click',e=>{e.preventDefault();const main=$('#main');main.tabIndex=-1;main.focus();main.scrollIntoView()});
 window.addEventListener('resize',()=>{if($('#slide-preview'))renderSlide()});
 // Member views switch in place so choices (for example songs sent to the slide tool) are kept.
-function go(url){history.pushState(null,'',url);route()}
-document.addEventListener('click',e=>{const a=e.target.closest('a[href^="/members/"]');if(!a||e.defaultPrevented||e.button||e.metaKey||e.ctrlKey||e.shiftKey||e.altKey||a.target)return;e.preventDefault();const url=a.getAttribute('href');if(url!==location.pathname)go(url);else route()});
-window.addEventListener('popstate',route);window.addEventListener('pageshow',e=>{if(e.persisted){$('#app').innerHTML='';route()}});route();
+function go(url){history.pushState(null,'',url);if(!attInPlace())route()}
+// Inside 點名, switching tab / group / month only redraws the view: no new login check, no new 'me'.
+function attInPlace(){
+ const view=$('#att-view');if(!view||!att.me||location.pathname!=='/members/attendance/')return false;
+ const links=[...document.querySelectorAll('.att-tabs a')],ids=links.map(a=>new URLSearchParams(a.getAttribute('href').split('?')[1]||'').get('tab')||'roll');
+ const p=attParams(),tab=ids.includes(p.get('tab'))?p.get('tab'):'roll',group=p.get('group')||'';
+ links.forEach((a,i)=>{a.setAttribute('href',attUrl({tab:ids[i]==='roll'?'':ids[i],group}));if(ids[i]===tab)a.setAttribute('aria-current','page');else a.removeAttribute('aria-current')});
+ view.dataset.tab=tab;attView(++routeSequence);return true;
+}
+document.addEventListener('click',e=>{const a=e.target.closest('a[href^="/members/"]');if(!a||e.defaultPrevented||e.button||e.metaKey||e.ctrlKey||e.shiftKey||e.altKey||a.target)return;e.preventDefault();const url=a.getAttribute('href');if(url!==location.pathname+location.search)go(url);else route()});
+window.addEventListener('popstate',()=>{if(!attInPlace())route()});window.addEventListener('pageshow',e=>{if(e.persisted){$('#app').innerHTML='';route()}});route();
