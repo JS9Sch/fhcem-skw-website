@@ -3,21 +3,9 @@ import memberHTML from './member-index.txt';
 import { memberResources } from './member-resources.js';
 import { configured, passwordMatches, sessionCookie, clearCookie, authenticated, revokeSession, SessionStorageUnavailable } from './auth.js';
 export { PreviewSession } from './session-store.js';
-const legacyRoutes = {
-  "/about_us": "/#/about",
-  "/untitled-c1142": "/#/faith",
-  "/untitled-cdu5": "/#/history",
-  "/about1": "/#/meetings",
-  "/untitled-c1hcf": "/#/churches",
-  "/services": "/#/activities",
-  "/untitled-ceh6": "/#/notices",
-  "/visit_us": "/#/visit",
-  "/brethren": "/#/members/resources",
-  "/_files/ugd/56f401_85c10deba2d936e237fda3a4bb3aa5ed.pdf": "/documents/weather.pdf",
-  "/_files/ugd/56f401_4bcf3cd3d53f5a796550e0e59568098e.pdf": "/documents/song-copyright.pdf",
-  "/_files/ugd/56f401_fadb6546e01895ebc243b3c3ca68a304.pdf": "/documents/recreation.pdf",
-  "/_files/ugd/56f401_74069852a3b54e26bceaf39a6fb5244a.pdf": "/documents/weddings-funerals.pdf"
-};
+// Member views share one protected page; the script picks the view from the path.
+const MEMBER_VIEWS = ['attendance', 'songs', 'rooms', 'ppt', 'resources'];
+const memberPagePath = path => path === '/members/' || MEMBER_VIEWS.some(v => path === `/members/${v}/`);
 function json(data, status=200, headers={}) {
  return new Response(JSON.stringify(data), {status,headers:{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store',...headers}});
 }
@@ -50,15 +38,16 @@ async function handle(request, env) {
  if(path==='/api/member-resources')return memberResources(request,env);
  if(path.startsWith('/api/'))return json({error:'not_found'},404);
  if(path==='/members'||path.startsWith('/members/')) {
+  if(path==='/members'||MEMBER_VIEWS.some(v=>path===`/members/${v}`))return new Response(null,{status:301,headers:{Location:path+'/'}});
   if(!await authenticated(request,env)) {
    if(path==='/members/app.js')return json({error:'authentication_required'},401);
-   return new Response(null,{status:302,headers:{Location:'/?login=1#/','Cache-Control':'no-store'}});
+   const next=memberPagePath(path)?path:'/members/';
+   return new Response(null,{status:302,headers:{Location:'/login/?next='+encodeURIComponent(next),'Cache-Control':'no-store'}});
   }
   if(path==='/members/app.js')return new Response(request.method==='HEAD'?null:memberScript,{headers:{'Content-Type':'text/javascript; charset=utf-8','Cache-Control':'no-store'}});
-  if(['/members','/members/','/members/index.html'].includes(path))return new Response(request.method==='HEAD'?null:memberHTML,{headers:{'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-store'}});
-  return new Response('Not found',{status:404,headers:{'Cache-Control':'no-store'}});
+  if(memberPagePath(path))return new Response(request.method==='HEAD'?null:memberHTML,{headers:{'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-store'}});
+  return new Response('Not found',{status:404,headers:{'Content-Type':'text/plain; charset=utf-8','Cache-Control':'no-store'}});
  }
- if (legacyRoutes[path])return new Response(null,{status:302,headers:{Location:legacyRoutes[path]}});
  if(path==='/robots.txt')return new Response('User-agent: *\nDisallow: /\n',{headers:{'Content-Type':'text/plain'}});
  return env.ASSETS.fetch(request);
 }
@@ -74,7 +63,7 @@ export default {async fetch(request,env){
  response.headers.set('X-Robots-Tag','noindex, nofollow, noarchive');
  response.headers.set('X-Content-Type-Options','nosniff');
  response.headers.set('Referrer-Policy','no-referrer');
- const memberPage = ['/members','/members/','/members/index.html'].includes(new URL(request.url).pathname) && response.status === 200;
- response.headers.set('Content-Security-Policy',"default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; frame-src " + (memberPage ? 'https://docs.google.com' : "'none'"));
+ const memberPage = memberPagePath(new URL(request.url).pathname) && response.status === 200;
+ response.headers.set('Content-Security-Policy',"default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob:; font-src 'self' https://fonts.gstatic.com; connect-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; frame-src " + (memberPage ? 'https://docs.google.com' : "'none'"));
  return response;
 }};
