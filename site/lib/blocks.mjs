@@ -68,7 +68,6 @@ export function factsBlock({ address = false } = {}) {
     <div><dt>地址</dt><dd>${addressHtml()}</dd></div>` : ''}
     <div><dt>電話</dt><dd><a href="tel:${CHURCH.tel}">${CHURCH.phone}</a></dd></div>
     <div><dt>WhatsApp</dt><dd><a href="${CHURCH.whatsapp}" target="_blank" rel="noopener">${CHURCH.phone}<span class="vh">（在新分頁開啟 WhatsApp）</span></a></dd></div>
-    <div><dt>傳真</dt><dd>${CHURCH.fax}</dd></div>
     <div><dt>電郵</dt><dd><a href="mailto:${CHURCH.email}">${CHURCH.email}</a></dd></div>
   </dl>`;
 }

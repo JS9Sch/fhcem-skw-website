@@ -16,7 +16,7 @@ export const NAV = [
 export const CHURCH = {
   name: '信望愛福音會筲箕灣堂',
   address: '筲箕灣道 334–346 號華寶商業中心 2 樓 202–203、205–209 室',
-  phone: '2560 9640', tel: '+85225609640', whatsapp: 'https://wa.me/85225609640', fax: '2567 2117',
+  phone: '2560 9640', tel: '+85225609640', whatsapp: 'https://wa.me/85225609640',
   email: 'fhcem@yahoo.com.hk',
   maps: 'https://maps.google.com/?cid=13131394494997730034',
 };
