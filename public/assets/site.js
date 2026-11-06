@@ -28,7 +28,7 @@
     const items = $$('#week-grid li[data-cat], #week-grid-extra li[data-cat]'), days = $$('#week-grid .day'), status = $('.filter-status');
     const apply = cat => {
       let n = 0;
-      items.forEach(li => { const show = !cat || li.dataset.cat === cat; li.hidden = !show; if (show) n++; });
+      items.forEach(li => { const show = !cat || li.dataset.cat === cat; li.hidden = !show; if (show && !('also' in li.dataset)) n++; });
       days.forEach(d => d.classList.toggle('dim', !!cat && !d.querySelector('li[data-cat]:not([hidden])')));
       status.textContent = `顯示 ${n} 項${cat || ''}聚會`;
     };

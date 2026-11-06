@@ -34,14 +34,19 @@ export const originalTimes = (() => {
   return map;
 })();
 
-export const meetings = content.meetings.map(([category, name, day, time, note]) => ({ category, name, day, time, note, original: originalTimes[name] || '' }));
+// A meeting held on two days is written "星期五／星期六" with times "20:00／17:00"; it shows in both day columns.
+export const meetings = content.meetings.map(([category, name, day, time, note]) => {
+  const days = day ? day.split('／') : [], times = time ? time.split('／') : [];
+  return { category, name, day: days[0] || '', time: times[0] || '', slots: days.map((d, i) => ({ day: d, time: times[i] || times[0] })), note, original: originalTimes[name] || '' };
+});
 
 export function weekGrid({ id = '' } = {}) {
   const cols = DAYS.map(([day, short, sub]) => {
-    const items = meetings.filter(m => m.day === day).sort((a, b) => a.time.localeCompare(b.time));
+    // "also" marks the second column of a two-day meeting so the filter counts it once.
+    const items = meetings.flatMap(m => m.slots.filter(s => s.day === day).map(s => ({ ...m, time: s.time, also: m.slots[0].day !== day }))).sort((a, b) => a.time.localeCompare(b.time));
     const list = items.length
-      ? `<ul>${items.map(m => `<li data-cat="${m.category}"${MAIN_WORSHIP.includes(m.name) ? ' class="worship"' : ''}><time>${m.time}</time><span>${esc(m.name)}</span>${m.note ? `<small>${esc(m.note)}</small>` : ''}</li>`).join('')}</ul>`
-      : '<p class="none">沒有恆常聚會</p>';
+      ? `<ul>${items.map(m => `<li data-cat="${m.category}"${m.also ? ' data-also' : ''}${MAIN_WORSHIP.includes(m.name) ? ' class="worship"' : ''}><time>${m.time}</time><span>${esc(m.name)}</span>${m.note ? `<small>${esc(m.note)}</small>` : ''}</li>`).join('')}</ul>`
+      : '';
     return `<div class="day" role="listitem"><h3><span class="vh">${day}</span><span aria-hidden="true">${short}</span>${sub ? `<small aria-hidden="true">${sub}</small>` : ''}</h3>${list}</div>`;
   });
   const loose = meetings.filter(m => !m.day);
@@ -69,7 +74,7 @@ export function factsBlock({ address = false } = {}) {
 
 export function addressBlock({ headingLevel = 'p' } = {}) {
   const tag = headingLevel;
-  return `<${tag} class="addr">筲箕灣道 334–346 號<span>華寶商業中心 2 樓 <span class="nw">202–203</span>、<span class="nw">205–209</span> 室</span></${tag}>
+  return `<${tag} class="addr">筲箕灣道 334–346 號<span>華寶商業中心 2 樓</span><span class="rooms">聚會地點 <span class="nw">203</span> 及 <span class="nw">205–209</span> 室・辦公室 <span class="nw">202</span> 室</span></${tag}>
   <p class="landmark">地下是<b>香港賽馬會</b>。大廈入口在賽馬會<b>左邊</b>（門上寫「華寶商業中心」），乘升降機到 <b>2 樓</b>。門前就是電車站「南康街」。</p>
   ${factsBlock()}`;
 }
@@ -94,21 +99,21 @@ export const steps = `<ol class="steps reveal">
 </ol>`;
 
 export const DOCS = [
-  { slug: 'weather', title: '颱風及暴雨警告訊號聚會安排', short: '颱風及暴雨時的聚會安排', kind: '聚會安排', file: '/documents/weather.pdf' },
-  { slug: 'song-copyright', title: '詩歌版權資料', kind: '常用詩歌集及出版社・2011 年', file: '/documents/song-copyright.pdf' },
+  { slug: 'weather', title: '颱風及暴雨警告訊號下聚會安排指引', short: '颱風及暴雨時的聚會安排', kind: '聚會安排' },
+  { slug: 'song-copyright', title: '詩歌版權資料', kind: '版權機構名單' },
   { slug: 'recreation', title: '筲箕灣堂康樂設施使用守則', kind: '堂會設施・2011 年', file: '/documents/recreation.pdf' },
   { slug: 'weddings-funerals', title: '聯會通告：處理婚宴喪事指引', kind: '聯會', file: '/documents/weddings-funerals.pdf' },
 ];
 
 export function stormCard(documents) {
-  const w = documents.weather;
+  const w = Object.fromEntries(documents.weather.map(x => [x.key, x.text]));
   return `<article class="storm reveal" aria-labelledby="storm-h">
-  <span class="scope">八號或以上風球・黑色暴雨警告</span>
+  <span class="scope">八號或以上熱帶氣旋警告・黑色暴雨警告信號</span>
   <h3 id="storm-h">颱風及暴雨時的聚會安排</h3>
   <dl>
-    <div><dt>主日崇拜</dt><dd>${esc(w[0].text)}</dd></div>
-    <div><dt>其他聚會</dt><dd>${esc(w[1].text)}</dd></div>
-    <div><dt>訊號除下後</dt><dd>${esc(w[2].text)}</dd></div>
+    <div><dt>主日崇拜</dt><dd>${esc(w.sunday)}</dd></div>
+    <div><dt>其他聚會</dt><dd>${esc(w.cancel)}</dd></div>
+    <div><dt>訊號除下後</dt><dd>${esc(w.lowered)}</dd></div>
   </dl>
   <a href="/notices/weather/">閱讀全文</a>
 </article>`;
