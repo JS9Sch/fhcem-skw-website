@@ -34,16 +34,20 @@
     tips.forEach(t => { t.addEventListener('focusout', () => t.classList.remove('dismissed')); t.addEventListener('mouseleave', () => t.classList.remove('dismissed')); });
   }
 
-  // Meetings: filter the full table by category.
+  // Meetings: filter the week grid by category; /meetings/?cat=團契 preselects a category.
   const filter = $('.filter');
   if (filter) {
-    const rows = $$('#meeting-table tbody tr'), status = $('.filter-status');
-    filter.addEventListener('change', e => {
-      const cat = e.target.value;
+    const items = $$('#week-grid li[data-cat]'), days = $$('#week-grid .day'), status = $('.filter-status');
+    const apply = cat => {
       let n = 0;
-      rows.forEach(r => { const show = !cat || r.dataset.cat === cat; r.hidden = !show; if (show) n++; });
-      status.textContent = `顯示 ${n} 項${cat ? cat : ''}聚會`;
-    });
+      items.forEach(li => { const show = !cat || li.dataset.cat === cat; li.hidden = !show; if (show) n++; });
+      days.forEach(d => d.classList.toggle('dim', !!cat && !d.querySelector('li[data-cat]:not([hidden])')));
+      status.textContent = `顯示 ${n} 項${cat || ''}聚會`;
+    };
+    filter.addEventListener('change', e => apply(e.target.value));
+    const want = new URLSearchParams(location.search).get('cat');
+    const radio = want && $$('input[name="cat"]', filter).find(r => r.value === want);
+    if (radio) { radio.checked = true; apply(want); }
   }
 
   // Contact form: check the fields only. Nothing is sent anywhere.

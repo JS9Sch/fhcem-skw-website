@@ -353,16 +353,19 @@ button.btn{border:0;font:inherit;font-weight:700;cursor:pointer}
 .filter{border:0;display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:18px}
 .filter legend{float:left;margin-right:6px;font-size:14px;color:var(--ink-soft);letter-spacing:.1em}
 .no-js .needs-js,.needs-js[hidden]{display:none}
-.mtable{width:100%;border-collapse:collapse;border-top:2px solid var(--ink);font-size:16px}
-.mtable th,.mtable td{text-align:left;padding:12px 10px 12px 0;border-bottom:1px solid var(--tile-light);vertical-align:baseline}
-.mtable thead th{font-size:13px;font-weight:500;color:var(--ink-soft);letter-spacing:.1em;padding-top:10px}
-.mtable tbody th{font-family:var(--sung);font-weight:700;font-size:18px}
-.mtable tr.worship tbody th,.mtable tr.worship th{color:var(--red)}
-.mtable .cat{font-size:12px;border:1px solid var(--ink-soft);color:var(--ink-soft);padding:1px 7px;border-radius:2px;white-space:nowrap}
-.mtable time{font-weight:700;font-variant-numeric:tabular-nums}
-.mtable .d{color:var(--ink-soft)}
-.mtable small{display:block;font-size:13px;color:var(--ink-soft)}
-.mtable tr[hidden]{display:none}
+.day.dim{opacity:.35}
+.orig{margin-top:26px;border-top:1px solid var(--tile-light);padding-top:12px;font-size:14px}
+.orig summary{cursor:pointer;color:var(--ink-soft);letter-spacing:.06em}
+.orig ul{list-style:none;margin-top:10px;columns:2;column-gap:40px}
+.orig li{display:flex;justify-content:space-between;gap:12px;padding:6px 0;border-bottom:1px dashed var(--tile-light);break-inside:avoid}
+.orig li span:last-child{color:var(--ink-soft);text-align:right}
+.wcards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:clamp(16px,3vw,40px);border-top:2px solid var(--ink);padding-top:20px}
+.wcard{display:grid;gap:6px;align-content:start}
+.wcard .d{font-size:13px;letter-spacing:.14em;color:var(--ink-soft)}
+.wcard time{font-family:var(--sung);font-weight:900;font-size:clamp(40px,6vw,64px);line-height:1;color:var(--red);font-variant-numeric:tabular-nums}
+.wcard b{font-family:var(--sung);font-weight:700;font-size:clamp(20px,2.4vw,26px)}
+.wcard small{font-size:13px;color:var(--ink-soft)}
+.reach{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:clamp(24px,4vw,64px);align-items:start}
 .first{max-width:40em}
 .first p{font-size:18px;text-wrap:pretty}
 .first .cta{margin-top:22px}
@@ -378,7 +381,7 @@ button.btn{border:0;font:inherit;font-weight:700;cursor:pointer}
 .act > p{color:var(--ink-soft);margin-top:4px}
 .act ul{list-style:none;margin-top:12px;grid-column:2}
 .act li{display:flex;justify-content:space-between;gap:12px;padding:7px 0;border-bottom:1px dashed var(--tile-light);font-size:15px}
-.act li span:last-child{color:var(--ink-soft);text-align:right}
+.act .more{grid-column:2;margin-top:14px;justify-self:start}
 
 /* notices + reader */
 .pdfs{list-style:none;display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px}
@@ -484,6 +487,8 @@ button.btn{border:0;font:inherit;font-weight:700;cursor:pointer}
   .foot{grid-template-columns:1fr 1fr}
 }
 @media (max-width:760px){
+  .reach{grid-template-columns:1fr}
+  .orig ul{columns:1}
   body{font-size:16px}
   .nav{display:none}
   .menu{display:block;position:relative}
@@ -534,16 +539,9 @@ html:not(.js) .needs-js{display:none}
 @media (max-width:760px){
   .ph-row{grid-template-columns:1fr;margin-right:0;gap:12px}
   .ph-row .rail{margin-right:calc(-1 * var(--gutter))}
-  .mtable thead{display:none}
-  .mtable,.mtable tbody,.mtable tr,.mtable th,.mtable td{display:block}
-  .mtable tr{display:grid;grid-template-columns:1fr auto;column-gap:12px;padding:12px 0;border-bottom:1px solid var(--tile-light)}
-  .mtable th,.mtable td{border:0;padding:0}
-  .mtable td:nth-of-type(1){grid-column:2;grid-row:1}
-  .mtable td:nth-of-type(2){grid-column:1/-1;font-size:15px}
-  .mtable td:nth-of-type(3){grid-column:1/-1;font-size:14px}
-  .act{grid-template-columns:56px 1fr;column-gap:14px}
+                .act{grid-template-columns:56px 1fr;column-gap:14px}
   .act-icon .icon{width:52px;height:52px}
-  .act ul{grid-column:1/-1}
+  .act ul,.act .more{grid-column:1/-1}
   .credits div,.facts.pub div,.church .facts div{grid-template-columns:1fr;gap:2px}
   .steps .step-text{align-self:auto}
 }

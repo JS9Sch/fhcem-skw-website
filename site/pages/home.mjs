@@ -1,7 +1,7 @@
 import documents from '../data/documents.mjs';
 import { page, arrow } from '../lib/layout.mjs';
 import { scene } from '../lib/scene.mjs';
-import { weekGrid, addressBlock, mapsButton, waysBlock, steps, stormCard, docList } from '../lib/blocks.mjs';
+import { worshipCards, meetings, addressBlock, mapsButton, waysBlock, steps, stormCard, docList } from '../lib/blocks.mjs';
 
 export default function home() {
   const body = `<section class="wall" aria-labelledby="hello">
@@ -33,9 +33,9 @@ export default function home() {
 <section class="sec" id="week" aria-labelledby="week-h">
   <h2 class="vlabel" id="week-h">每週聚會</h2>
   <div class="sec-body">
-    <p class="lead reveal">一星期共 <b>18</b> 項恆常聚會，按日子排列。紅色是主日崇拜和週六晚崇拜。</p>
-    ${weekGrid()}
-    <div class="weeknote"><span class="key">崇拜</span><a class="link" href="/meetings/">完整聚會時間表</a></div>
+    <p class="lead reveal">每週兩堂崇拜，歡迎第一次來的朋友。</p>
+    ${worshipCards()}
+    <div class="weeknote"><span>另有主日學、祈禱會及團契，一星期共 ${meetings.length} 項恆常聚會。</span><a class="link" href="/meetings/">全部聚會時間</a></div>
   </div>
 </section>
 

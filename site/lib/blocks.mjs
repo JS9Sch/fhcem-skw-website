@@ -36,28 +36,40 @@ export const originalTimes = (() => {
 
 export const meetings = content.meetings.map(([category, name, day, time, note]) => ({ category, name, day, time, note, original: originalTimes[name] || '' }));
 
-export function weekGrid() {
+export function weekGrid({ id = '' } = {}) {
   const cols = DAYS.map(([day, short, sub]) => {
     const items = meetings.filter(m => m.day === day).sort((a, b) => a.time.localeCompare(b.time));
     const list = items.length
-      ? `<ul>${items.map(m => `<li${MAIN_WORSHIP.includes(m.name) ? ' class="worship"' : ''}><time>${m.time}</time><span>${esc(m.name)}</span>${m.note ? `<small>${esc(m.note)}</small>` : ''}</li>`).join('')}</ul>`
+      ? `<ul>${items.map(m => `<li data-cat="${m.category}"${MAIN_WORSHIP.includes(m.name) ? ' class="worship"' : ''}><time>${m.time}</time><span>${esc(m.name)}</span>${m.note ? `<small>${esc(m.note)}</small>` : ''}</li>`).join('')}</ul>`
       : '<p class="none">沒有恆常聚會</p>';
     return `<div class="day" role="listitem"><h3><span class="vh">${day}</span><span aria-hidden="true">${short}</span>${sub ? `<small aria-hidden="true">${sub}</small>` : ''}</h3>${list}</div>`;
   });
-  return `<div class="week reveal" role="list">${cols.join('')}</div>`;
+  return `<div class="week reveal" role="list"${id ? ` id="${id}"` : ''}>${cols.join('')}</div>`;
+}
+
+// Home page summary: only the two main services; the full timetable lives on /meetings/.
+export function worshipCards() {
+  const order = DAYS.map(([day]) => day);
+  const items = meetings.filter(m => MAIN_WORSHIP.includes(m.name)).sort((a, b) => order.indexOf(a.day) - order.indexOf(b.day));
+  return `<div class="wcards reveal">${items.map(m => `<div class="wcard"><span class="d">${m.day.replace('星期', '週')}</span><time>${m.time}</time><b>${esc(m.name)}</b>${m.note ? `<small>${esc(m.note)}</small>` : ''}</div>`).join('')}</div>`;
 }
 
 export const mapSvg = readFileSync(new URL('./map.svg', import.meta.url), 'utf8');
+
+export function factsBlock({ address = false } = {}) {
+  return `<dl class="facts">${address ? `
+    <div><dt>地址</dt><dd>${CHURCH.address}</dd></div>` : ''}
+    <div><dt>電話</dt><dd><a href="tel:${CHURCH.tel}">${CHURCH.phone}</a></dd></div>
+    <div><dt>傳真</dt><dd>${CHURCH.fax}</dd></div>
+    <div><dt>電郵</dt><dd>${CHURCH.email}<span class="tip"><button type="button" class="tag tip-btn" aria-describedby="tip-email" aria-expanded="false">待核對</button><span class="tip-text" role="tooltip" id="tip-email">原網站顯示的電郵與寄信連結不一致，請先致電確認。</span></span></dd></div>
+  </dl>`;
+}
 
 export function addressBlock({ headingLevel = 'p' } = {}) {
   const tag = headingLevel;
   return `<${tag} class="addr">筲箕灣道 334–336 號<span>華寶商業中心 2 樓 205–209 室</span></${tag}>
   <p class="landmark">地下是<b>香港賽馬會</b>。大廈入口在賽馬會<b>左邊</b>（門上寫「華寶商業中心」），乘升降機到 <b>2 樓</b>。門前就是電車站「南康街」。</p>
-  <dl class="facts">
-    <div><dt>電話</dt><dd><a href="tel:${CHURCH.tel}">${CHURCH.phone}</a></dd></div>
-    <div><dt>傳真</dt><dd>${CHURCH.fax}</dd></div>
-    <div><dt>電郵</dt><dd>${CHURCH.email}<span class="tip"><button type="button" class="tag tip-btn" aria-describedby="tip-email" aria-expanded="false">待核對</button><span class="tip-text" role="tooltip" id="tip-email">原網站顯示的電郵與寄信連結不一致，請先致電確認。</span></span></dd></div>
-  </dl>`;
+  ${factsBlock()}`;
 }
 
 export const mapsButton = `<a class="btn" href="${CHURCH.maps}" target="_blank" rel="noopener">在 Google 地圖開啟 ${arrow}<span class="vh">（在新分頁開啟）</span></a>`;

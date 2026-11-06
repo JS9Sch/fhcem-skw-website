@@ -1,4 +1,5 @@
 """Exercise adapted controls using demo data only, at phone and desktop sizes."""
+from urllib.parse import quote
 import getpass
 import json
 import re
@@ -73,11 +74,14 @@ try:
             first = page.locator('.filter input[type=radio]').first
             first.focus(); first.press('ArrowRight')
             expect(page.locator('.filter input[value="崇拜"]')).to_be_checked()
-            expect(page.locator('#meeting-table tbody tr:visible')).to_have_count(3)
+            expect(page.locator('#week-grid li[data-cat]:visible')).to_have_count(3)
             expect(page.locator('.filter-status')).to_contain_text('3')
+            page.goto(BASE + '/meetings/?cat=' + quote('團契'))
+            expect(page.locator('.filter input[value="團契"]')).to_be_checked()
+            expect(page.locator('#week-grid li[data-cat="崇拜"]:visible')).to_have_count(0)
             # Tooltip (Uiverse G4b413l): opens on keyboard focus, Escape hides it without moving focus.
             page.goto(BASE + '/contact/')
-            tip = page.locator('#visit .tip-btn'); tip.focus()
+            tip = page.locator('#reach .tip-btn'); tip.focus()
             expect(page.locator('#tip-email')).to_be_visible()
             page.keyboard.press('Escape'); expect(page.locator('#tip-email')).to_be_hidden(); expect(tip).to_be_focused()
             # Floating-label form (Uiverse alexruix): checks fields, never sends.

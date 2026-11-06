@@ -62,7 +62,7 @@ def main(base, shots, members):
                 page = ctx.new_page(); errors = []
                 page.on('pageerror', lambda e: errors.append(str(e)))
                 page.on('console', lambda m: errors.append(m.text) if m.type == 'error' else None)
-                resp = page.goto(base + path, wait_until='networkidle')
+                resp = page.goto(base + path, wait_until='load'); page.wait_for_timeout(400)
                 expected = 404 if path == '/no-such-page/' else 200
                 if resp.status != expected: failures.append(f'{path} {name}: HTTP {resp.status}')
                 page.evaluate('document.fonts.ready')
@@ -95,7 +95,7 @@ def main(base, shots, members):
             ctx.close()
         # Reduced motion: the tram must stand still and reveals must be visible at once.
         ctx = context(browser, base, viewport={'width': 1440, 'height': 1000}, reduced_motion='reduce')
-        page = ctx.new_page(); page.goto(base + '/', wait_until='networkidle')
+        page = ctx.new_page(); page.goto(base + '/', wait_until='load'); page.wait_for_timeout(400)
         anim = page.evaluate("getComputedStyle(document.querySelector('.tram-move')).animationName")
         if anim != 'none': failures.append(f'reduced motion: tram animation is {anim}')
         hidden = page.evaluate("[...document.querySelectorAll('.reveal')].filter(e=>getComputedStyle(e).opacity!=='1').length")
