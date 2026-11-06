@@ -8,8 +8,8 @@ export function memberIndex() {
 <dialog id="entry" aria-labelledby="unit-title"><form method="dialog" class="entry-form">
   <button class="close icon-button" aria-label="關閉">×</button>
   <h2 id="unit-title">選擇示範單位</h2>
-  <p>點名、房間及詩歌工具仍在開發中，使用示範資料。將來各單位會有自己的權限。</p>
-  <label>以哪個單位試用？<select id="unit"><option>大衛團</option><option>以諾團</option><option>示羅團</option><option>傳道同工</option><option>網站管理員</option></select></label>
+  <p>房間預約仍在開發中，使用示範資料。將來各單位會有自己的權限。</p>
+  <label>以哪個單位試用？<select id="unit"><option>大衛團</option><option>示羅團</option><option>傳道同工</option><option>網站管理員</option></select></label>
   <button type="button" id="enter-demo" class="btn">確定</button>
 </form></dialog>`;
   return page({
