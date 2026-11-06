@@ -38,6 +38,37 @@
     if (radio) { radio.checked = true; apply(want); }
   }
 
+  // 怎樣來: tap a stop name (in the list or on the map) to draw its walking route to the church.
+  // Tapping the same stop again hides it. Without this script the names stay plain text.
+  const map = $('.mapwrap svg'), note = $('#walk-note');
+  if (map && note) {
+    const wrap = map.parentElement;
+    const lines = Object.fromEntries($$('.walk', map).map(g => [g.dataset.walk, g]));
+    const buttons = $$('.ways b[data-walk]').filter(b => lines[b.dataset.walk]).map(b => {
+      const btn = document.createElement('button');
+      btn.type = 'button'; btn.className = 'walk-btn'; btn.textContent = b.textContent;
+      btn.dataset.walk = b.dataset.walk; btn.dataset.note = b.dataset.note;
+      btn.setAttribute('aria-pressed', 'false'); btn.setAttribute('aria-controls', 'walk-note');
+      b.replaceWith(btn); return btn;
+    });
+    let shown = null;
+    const show = (id, fromList) => {
+      shown = shown === id ? null : id;
+      for (const [k, g] of Object.entries(lines)) g.classList.toggle('on', k === shown);
+      $$('.hit', map).forEach(m => m.classList.toggle('sel', m.dataset.walk === shown));
+      buttons.forEach(b => b.setAttribute('aria-pressed', String(b.dataset.walk === shown)));
+      note.textContent = shown ? buttons.find(b => b.dataset.walk === shown).dataset.note : '';
+      if (!shown) return;
+      // Bring the route into view: scroll the narrow map sideways, and the page up to the map if needed.
+      const box = lines[shown].getBBox(), scale = map.clientWidth / map.viewBox.baseVal.width;
+      wrap.scrollLeft = (box.x + box.width / 2) * scale - wrap.clientWidth / 2;
+      const r = wrap.getBoundingClientRect();
+      if (fromList && (r.top < 0 || r.bottom > innerHeight)) wrap.scrollIntoView({ block: 'start', behavior: still ? 'auto' : 'smooth' });
+    };
+    buttons.forEach(b => b.addEventListener('click', () => show(b.dataset.walk, true)));
+    $$('.hit', map).forEach(m => { if (lines[m.dataset.walk]) m.addEventListener('click', () => show(m.dataset.walk, false)); });
+  }
+
   // Contact form: check the fields only. Nothing is sent anywhere.
   const form = $('#contact-form');
   if (form) {

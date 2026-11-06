@@ -1,9 +1,10 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 520 300" class="map" role="img" aria-labelledby="map-t map-d">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 520 325" class="map" role="img" aria-labelledby="map-t map-d">
 <title id="map-t">信望愛福音會筲箕灣堂附近地圖</title>
 <desc id="map-d">教會位於筲箕灣道華寶大廈 2 樓，地下是香港賽馬會投注處。門前有電車站南康街；巴士站新成街（往西行）在同一邊，南康街及南安里（往東行）在馬路對面；港鐵筲箕灣站 A1 至 A3 出口在東面約 200 至 270 米。</desc>
-<defs><clipPath id="mclip"><rect width="520" height="300"/></clipPath></defs><g clip-path="url(#mclip)">
-<rect width="520" height="300" fill="#E4E2DC"/>
+<defs><clipPath id="mclip"><rect width="520" height="325"/></clipPath></defs><g clip-path="url(#mclip)">
+<rect width="520" height="325" fill="#E4E2DC"/>
 <path d="M259.4 -8.6L301.9 35.4L306.1 39.1L310.4 42.1L315.9 45.0L318.9 46.1L318.9 45.2L331.5 45.1L331.3 -9.7L260.6 -9.9L259.4 -8.6Z" fill="#D3D0C8"/>
+<path d="M157.1 384.4L153.1 387.2L156.0 391.2L157.3 390.2L160.1 394.2L157.0 396.5L158.0 398.0L151.1 402.6L150.2 401.3L147.8 403.0L145.0 399.0L146.1 398.2L142.1 392.6L139.2 388.6L138.5 387.5L138.1 386.2L138.0 384.9L138.4 383.7L139.0 382.5L140.0 381.7L138.2 379.1L134.2 381.9L132.8 379.9L131.6 380.7L113.4 355.1L114.6 354.3L113.3 352.5L123.1 345.6L124.3 347.4L125.6 346.5L143.8 372.1L142.6 372.9L144.0 375.0L142.1 376.3L143.9 378.8L150.0 374.5L149.0 373.1L159.6 365.6L168.5 378.1L158.0 385.6L157.1 384.4Z" fill="#D3D0C8"/>
 <path d="M93.4 216.9L89.4 219.7L86.6 215.7L87.9 214.8L85.1 210.8L81.9 213.1L80.8 211.6L74.2 216.6L75.1 217.9L72.8 219.6L75.6 223.5L76.7 222.8L80.7 228.4L83.6 232.5L84.4 233.5L85.4 234.3L86.6 234.7L87.9 234.8L89.2 234.6L90.4 233.9L92.2 236.5L88.2 239.3L89.7 241.3L88.5 242.1L106.7 267.7L107.9 266.9L109.2 268.7L118.9 261.8L117.7 260.0L118.9 259.1L100.7 233.5L99.4 234.4L98.0 232.4L96.1 233.7L94.3 231.2L100.5 226.8L101.4 228.2L112.0 220.7L103.0 208.2L92.5 215.7L93.4 216.9Z" fill="#D3D0C8"/>
 <path d="M112.1 308.7L118.6 304.3L122.4 309.8L123.5 311.4L117.4 316.0L119.3 318.8L112.9 323.2L99.4 332.7L74.9 349.8L69.3 353.7L68.9 352.9L60.7 341.7L46.1 352.6L32.9 334.0L92.0 293.0L98.4 288.6L112.1 308.7Z" fill="#D3D0C8"/>
 <path d="M88.5 64.8L87.2 62.6L79.0 67.3L80.3 69.5L75.8 72.1L78.1 76.1L81.5 74.2L82.2 75.4L78.8 77.3L81.0 81.3L84.9 79.1L86.6 82.1L90.7 79.8L89.1 77.0L90.5 76.2L92.2 79.2L96.2 76.8L94.5 73.8L98.4 71.6L96.1 67.6L92.7 69.6L92.0 68.4L95.4 66.5L93.0 62.2L88.5 64.8Z" fill="#D3D0C8"/>
@@ -1068,28 +1069,38 @@
 <path d="M116.8 2.6L120.8 6.7L127.6 14.3L129.4 17.2L133.5 24.5" fill="none" stroke="#1D4A37" stroke-width="2.2" stroke-linecap="round"/>
 <path d="M-241.9 -202.5L-250.4 -214.6L-257.0 -225.1L-265.1 -237.9L-279.0 -257.3L-308.2 -297.8L-313.9 -305.6" fill="none" stroke="#1D4A37" stroke-width="2.2" stroke-linecap="round"/>
 <path d="M174.7 167.8L176.3 166.8L191.6 158.2L205.2 182.2L188.3 191.8L174.7 167.8Z" fill="#AE1820" stroke="#1A1918" stroke-width="1.5"/>
-<text x="170.4" y="105.3" transform="rotate(60.5 170.4 105.3)" class="st big" text-anchor="middle" dy="0.35em">筲箕灣道</text>
+<text x="184.1" y="109.0" transform="rotate(60.4 184.1 109.0)" class="st big" text-anchor="middle" dy="0.35em">筲箕灣道</text>
 <text x="190.6" y="236.7" transform="rotate(-29.5 190.6 236.7)" class="st" text-anchor="middle" dy="0.35em">南康街</text>
-<text x="172.7" y="37.6" transform="rotate(-28.9 172.7 37.6)" class="st" text-anchor="middle" dy="0.35em">新成街</text>
+<text x="83.1" y="93.1" transform="rotate(-29.6 83.1 93.1)" class="st" text-anchor="middle" dy="0.35em">新成街</text>
 <text x="255.2" y="129.3" transform="rotate(61.3 255.2 129.3)" class="st" text-anchor="middle" dy="0.35em">南安街</text>
 <text x="459.4" y="235.3" transform="rotate(11.4 459.4 235.3)" class="st" text-anchor="middle" dy="0.35em">金華街</text>
 <text x="489.3" y="183.5" transform="rotate(12.0 489.3 183.5)" class="st" text-anchor="middle" dy="0.35em">寶文街</text>
 <text x="460.1" y="56.8" transform="rotate(0.7 460.1 56.8)" class="st" text-anchor="middle" dy="0.35em">愛秩序灣道</text>
+<g class="walk" data-walk="bus-sunsing"><path d="M199.3 163.0L198.3 163.6L208.8 182.2L199.1 187.6L194.8 179.9" class="walk-case"/><path d="M199.3 163.0L198.3 163.6L208.8 182.2L199.1 187.6L194.8 179.9" class="walk-line" pathLength="1"/><circle cx="199.3" cy="163.0" r="4.5" class="walk-end"/></g>
+<g class="walk" data-walk="bus-namhong"><path d="M203.4 145.2L207.4 142.9L216.3 158.4L238.7 198.1L235.6 199.9L233.1 201.3L231.0 202.5L226.7 204.9L222.9 207.1L208.8 182.2L199.1 187.6L194.8 179.9" class="walk-case"/><path d="M203.4 145.2L207.4 142.9L216.3 158.4L238.7 198.1L235.6 199.9L233.1 201.3L231.0 202.5L226.7 204.9L222.9 207.1L208.8 182.2L199.1 187.6L194.8 179.9" class="walk-line" pathLength="1"/><circle cx="203.4" cy="145.2" r="4.5" class="walk-end"/></g>
+<g class="walk" data-walk="bus-namon"><path d="M269.3 259.8L272.5 258.0L249.6 217.6L249.3 216.4L249.6 214.8L250.6 213.3L252.0 212.1L247.7 204.7L246.2 201.9L243.9 203.2L241.4 202.7L239.8 200.0L238.7 198.1L235.6 199.9L233.1 201.3L231.0 202.5L226.7 204.9L222.9 207.1L208.8 182.2L199.1 187.6L194.8 179.9" class="walk-case"/><path d="M269.3 259.8L272.5 258.0L249.6 217.6L249.3 216.4L249.6 214.8L250.6 213.3L252.0 212.1L247.7 204.7L246.2 201.9L243.9 203.2L241.4 202.7L239.8 200.0L238.7 198.1L235.6 199.9L233.1 201.3L231.0 202.5L226.7 204.9L222.9 207.1L208.8 182.2L199.1 187.6L194.8 179.9" class="walk-line" pathLength="1"/><circle cx="269.3" cy="259.8" r="4.5" class="walk-end"/></g>
+<g class="walk" data-walk="tram-namhong"><path d="M210.3 161.0L212.9 159.9L214.5 159.2L214.9 159.0L216.3 158.4L238.7 198.1L235.6 199.9L233.1 201.3L231.0 202.5L226.7 204.9L222.9 207.1L208.8 182.2L199.1 187.6L194.8 179.9" class="walk-case"/><path d="M210.3 161.0L212.9 159.9L214.5 159.2L214.9 159.0L216.3 158.4L238.7 198.1L235.6 199.9L233.1 201.3L231.0 202.5L226.7 204.9L222.9 207.1L208.8 182.2L199.1 187.6L194.8 179.9" class="walk-line" pathLength="1"/><circle cx="210.3" cy="161.0" r="4.5" class="walk-end"/></g>
+<g class="walk" data-walk="tram-sunsing"><path d="M158.9 74.1L152.6 62.9L147.9 65.5L144.9 69.4L167.0 108.5L179.0 129.5L208.8 182.2L199.1 187.6L194.8 179.9" class="walk-case"/><path d="M158.9 74.1L152.6 62.9L147.9 65.5L144.9 69.4L167.0 108.5L179.0 129.5L208.8 182.2L199.1 187.6L194.8 179.9" class="walk-line" pathLength="1"/><circle cx="158.9" cy="74.1" r="4.5" class="walk-end"/></g>
+<g class="walk" data-walk="mtr-a3"><path d="M398.8 170.4L394.8 171.4L396.6 178.3L390.3 180.5L383.7 194.3L369.6 215.3L370.5 220.1L368.6 226.9L366.1 229.0L360.2 230.7L352.1 231.3L345.4 233.6L342.2 237.2L335.5 240.4L328.7 244.3L323.9 245.4L323.7 232.9L326.8 228.8L328.1 227.0L324.0 226.4L317.4 224.8L310.0 220.9L306.9 218.2L306.2 217.6L292.5 195.9L287.9 198.6L286.7 197.1L284.9 196.1L281.8 195.6L279.9 196.4L252.0 212.1L247.7 204.7L246.2 201.9L243.9 203.2L241.4 202.7L239.8 200.0L238.7 198.1L235.6 199.9L233.1 201.3L231.0 202.5L226.7 204.9L222.9 207.1L208.8 182.2L199.1 187.6L194.8 179.9" class="walk-case"/><path d="M398.8 170.4L394.8 171.4L396.6 178.3L390.3 180.5L383.7 194.3L369.6 215.3L370.5 220.1L368.6 226.9L366.1 229.0L360.2 230.7L352.1 231.3L345.4 233.6L342.2 237.2L335.5 240.4L328.7 244.3L323.9 245.4L323.7 232.9L326.8 228.8L328.1 227.0L324.0 226.4L317.4 224.8L310.0 220.9L306.9 218.2L306.2 217.6L292.5 195.9L287.9 198.6L286.7 197.1L284.9 196.1L281.8 195.6L279.9 196.4L252.0 212.1L247.7 204.7L246.2 201.9L243.9 203.2L241.4 202.7L239.8 200.0L238.7 198.1L235.6 199.9L233.1 201.3L231.0 202.5L226.7 204.9L222.9 207.1L208.8 182.2L199.1 187.6L194.8 179.9" class="walk-line" pathLength="1"/><circle cx="398.8" cy="170.4" r="4.5" class="walk-end"/></g>
 <g class="exit"><rect x="399.2" y="65.3" width="22" height="18" rx="4" fill="#0075C2"/><text x="410.2" y="74.3" dy="0.36em" text-anchor="middle">B3</text></g>
 <g class="exit"><rect x="435.9" y="155.6" width="22" height="18" rx="4" fill="#0075C2"/><text x="446.9" y="164.6" dy="0.36em" text-anchor="middle">A2</text></g>
-<g class="exit"><rect x="387.8" y="161.4" width="22" height="18" rx="4" fill="#0075C2"/><text x="398.8" y="170.4" dy="0.36em" text-anchor="middle">A3</text></g>
+<g class="exit hit" data-walk="mtr-a3"><rect x="387.8" y="161.4" width="22" height="18" rx="4" fill="#0075C2"/><text x="398.8" y="170.4" dy="0.36em" text-anchor="middle">A3</text></g>
 <g class="exit"><rect x="441.3" y="128.3" width="22" height="18" rx="4" fill="#0075C2"/><text x="452.3" y="137.3" dy="0.36em" text-anchor="middle">A1</text></g>
-<g class="tram-stop"><circle cx="210.3" cy="161.0" r="8" fill="#1D4A37" stroke="#fff" stroke-width="2"/><text x="210.3" y="161.0" dy="0.36em" text-anchor="middle">電</text></g>
-<rect x="195.3" y="158.9" width="7" height="7" fill="#1A1918" stroke="#fff" stroke-width="1.2"/>
+<g class="tram-stop hit" data-walk="tram-namhong"><circle cx="210.3" cy="161.0" r="8" fill="#1D4A37" stroke="#fff" stroke-width="2"/><text x="210.3" y="161.0" dy="0.36em" text-anchor="middle">電</text></g>
+<g class="tram-stop hit" data-walk="tram-sunsing"><circle cx="158.9" cy="74.1" r="8" fill="#1D4A37" stroke="#fff" stroke-width="2"/><text x="158.9" y="74.1" dy="0.36em" text-anchor="middle">電</text></g>
+<g class="bus-stop hit" data-walk="bus-sunsing"><rect x="195.3" y="158.9" width="7" height="7" fill="#1A1918" stroke="#fff" stroke-width="1.2"/>
 <text x="191.8" y="162.4" dy=".36em" text-anchor="end" class="bs">新成街</text>
-<rect x="200.1" y="141.4" width="7" height="7" fill="#1A1918" stroke="#fff" stroke-width="1.2"/>
+</g>
+<g class="bus-stop hit" data-walk="bus-namhong"><rect x="200.1" y="141.4" width="7" height="7" fill="#1A1918" stroke="#fff" stroke-width="1.2"/>
 <text x="210.6" y="144.9" dy=".36em" text-anchor="start" class="bs">南康街</text>
-<rect x="265.5" y="256.3" width="7" height="7" fill="#1A1918" stroke="#fff" stroke-width="1.2"/>
+</g>
+<g class="bus-stop hit" data-walk="bus-namon"><rect x="265.5" y="256.3" width="7" height="7" fill="#1A1918" stroke="#fff" stroke-width="1.2"/>
 <text x="276.0" y="259.8" dy=".36em" text-anchor="start" class="bs">南安里</text>
+</g>
 </g>
 <g class="pin"><path d="M177.2 173.3L156.0 167.3" stroke="#1A1918" stroke-width="1.5"/><rect x="6.0" y="143.3" width="150" height="48" rx="3" fill="#1A1918"/><text x="16.0" y="163.3" class="pin-t">信望愛福音會</text><text x="16.0" y="182.3" class="pin-s">2 樓・地下賽馬會</text></g>
 <text x="470.3" y="114.7" class="mtr" text-anchor="end">港鐵筲箕灣站</text>
-<g class="legend" transform="translate(8 266)"><rect width="292" height="26" rx="3" fill="#FBFAF7" opacity=".94"/><path d="M8 17h50" stroke="#1A1918" stroke-width="2"/><path d="M8 13v8M58 13v8" stroke="#1A1918" stroke-width="2"/><text x="63" y="17" dy=".1em" class="sc">50 米</text><circle cx="114" cy="13" r="7" fill="#1D4A37"/><text x="114" y="13" dy=".36em" text-anchor="middle" class="lg-w">電</text><text x="125" y="17" dy=".1em" class="sc">電車站</text><rect x="174" y="9" width="8" height="8" fill="#1A1918"/><text x="187" y="17" dy=".1em" class="sc">巴士站</text><rect x="230" y="5" width="18" height="15" rx="3" fill="#0075C2"/><text x="239" y="13" dy=".36em" text-anchor="middle" class="lg-w">A3</text><text x="252" y="17" dy=".1em" class="sc">港鐵</text></g>
+<g class="legend" transform="translate(8 291)"><rect width="292" height="26" rx="3" fill="#FBFAF7" opacity=".94"/><path d="M8 17h50" stroke="#1A1918" stroke-width="2"/><path d="M8 13v8M58 13v8" stroke="#1A1918" stroke-width="2"/><text x="63" y="17" dy=".1em" class="sc">50 米</text><circle cx="114" cy="13" r="7" fill="#1D4A37"/><text x="114" y="13" dy=".36em" text-anchor="middle" class="lg-w">電</text><text x="125" y="17" dy=".1em" class="sc">電車站</text><rect x="174" y="9" width="8" height="8" fill="#1A1918"/><text x="187" y="17" dy=".1em" class="sc">巴士站</text><rect x="230" y="5" width="18" height="15" rx="3" fill="#0075C2"/><text x="239" y="13" dy=".36em" text-anchor="middle" class="lg-w">A3</text><text x="252" y="17" dy=".1em" class="sc">港鐵</text></g>
 <g transform="translate(498 22)"><path d="M0 -12L7 8L0 3L-7 8Z" fill="#1A1918"/><text y="22" text-anchor="middle" class="sc">北</text></g>
-<text x="514" y="294" text-anchor="end" class="attr">地圖資料 © OpenStreetMap 貢獻者</text>
+<text x="514" y="319" text-anchor="end" class="attr">地圖資料 © OpenStreetMap 貢獻者</text>
 </svg>

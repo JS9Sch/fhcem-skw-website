@@ -3,12 +3,17 @@ import { readFileSync } from 'node:fs';
 import content from '../data/content.mjs';
 import { esc, arrow, external, CHURCH, addressHtml } from './layout.mjs';
 import { STOPS, EAST, WEST, TERMINUS, NIGHT, SPECIAL } from '../data/bus.mjs';
+import { WALKS } from '../data/walks.mjs';
+
+// A stop name that the page script turns into a button showing its walking route on the map.
+const walk = (id, name) => `<b data-walk="${id}" data-note="${esc(WALKS[id])}">${name}</b>`;
+const BUS_WALK = { 新成街站: 'bus-sunsing', 南康街站: 'bus-namhong', 南安里站: 'bus-namon' };
 
 const route = r => `<li${NIGHT.includes(r) ? ' class="night"' : SPECIAL.includes(r) ? ' class="special"' : ''}><b>${r}</b>${NIGHT.includes(r) ? '<small>通宵</small>' : SPECIAL.includes(r) ? '<small>特別班</small>' : ''}</li>`;
 const routes = list => `<ul class="routes">${list.map(route).join('')}</ul>`;
 
 function busBlock(open) {
-  return `<ul class="bus-stops">${STOPS.map(([n, d, t]) => `<li><b>${n}</b>（${d}）：${t}</li>`).join('')}</ul>
+  return `<ul class="bus-stops">${STOPS.map(([n, d, t]) => `<li>${walk(BUS_WALK[n], n)}（${d}）：${t}</li>`).join('')}</ul>
       <details class="bus"${open ? ' open' : ''}><summary>按路線看在哪個站下車</summary>
         <h4>乘往東行（往柴灣方向）的巴士</h4>
         <dl class="bus-groups">${EAST.map(([from, stops]) => `<div><dt>由${from}</dt>${stops.map(([stop, list]) => `<dd><span class="at">在<b>${stop}</b>下車</span>${routes(list)}</dd>`).join('')}</div>`).join('')}</dl>
@@ -83,13 +88,15 @@ export const mapsButton = `<a class="btn" href="${CHURCH.maps}" target="_blank" 
 
 export function waysBlock({ open = false } = {}) {
   return `<div class="mapwrap" tabindex="0" role="group" aria-label="附近地圖（可左右捲動）">${mapSvg}</div>
+  <p class="walk-note" id="walk-note" aria-live="polite"></p>
   <p class="maphint">地圖可以左右拖動。</p>
+  <p class="walk-hint">按下面的站名，地圖會畫出步行到教會的路線。</p>
   <ul class="ways">
-    <li><span class="mode tram">電車</span><div><b>南康街站</b>就在門前（往筲箕灣方向）。往西行的<b>新成街站</b>約 100 米。</div></li>
-    <li><span class="mode mtr">港鐵</span><div><b>筲箕灣站 A3 出口</b>最近，約 200 米（直線距離）；A1、A2 出口亦在附近。</div></li>
+    <li><span class="mode tram">電車</span><div>${walk('tram-namhong', '南康街站')}就在門前（往筲箕灣方向）。往西行的${walk('tram-sunsing', '新成街站')}步行約 150 米。</div></li>
+    <li><span class="mode mtr">港鐵</span><div>${walk('mtr-a3', '筲箕灣站 A3 出口')}最近，步行約 310 米；A1、A2 出口亦在附近。</div></li>
     <li><span class="mode bus">巴士</span><div>${busBlock(open)}</div></li>
   </ul>
-  <p class="src">地圖、電車站及港鐵出口資料來自 OpenStreetMap（2026 年 11 月）。</p>`;
+  <p class="src">地圖、步行路線、電車站及港鐵出口資料來自 OpenStreetMap（2026 年 11 月）。</p>`;
 }
 
 export const steps = `<ol class="steps reveal">
