@@ -1,2 +1,55 @@
 <!doctype html>
-<html lang="zh-Hant-HK"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex,nofollow"><meta name="description" content="信望愛福音會筲箕灣堂新站互動提案。"><title>筲箕灣堂 · 新站提案</title><link rel="stylesheet" href="/style.css"><link rel="stylesheet" href="/public-pages.css"><link rel="stylesheet" href="/uiverse-controls.css"><script src="/assets/pptxgen.bundle.js" defer></script><script src="/content.js" defer></script><script src="/document-content.js" defer></script><script src="/documents.js" defer></script><script src="/public-pages.js" defer></script><script src="/motion.js" defer></script><script src="/members/app.js" defer></script></head><body><a class="skip" href="#main">跳到主要內容</a><div class="preview-bar"><span>新站提案 <span class="dot">·</span> 互動原型</span><span>工具為示範 · 資源沿用原站</span><button id="motion-toggle" type="button" aria-label="動態效果" aria-describedby="motion-state" aria-pressed="true"><span>動態效果</span><span class="motion-track" aria-hidden="true"><span class="motion-thumb"></span></span><span id="motion-state">開</span></button></div><div id="app"></div><div id="toast" role="status" aria-live="polite"></div><dialog id="entry"><form method="dialog" class="entry-form"><button class="close icon-button" aria-label="關閉">×</button><span class="eyebrow">肢體專區</span><h2>選擇示範單位</h2><p>點名、預約及詩歌工具使用示範資料；肢體資源連接原有資料。正式版本將使用各單位的獨立密碼。</p><label>以哪個單位體驗？<select id="unit"><option>大衛團</option><option>以諾團</option><option>示羅團</option><option>傳道同工</option><option>網站管理員</option></select></label><button type="button" id="enter-demo" class="button primary">進入示範 <span aria-hidden="true">→</span></button><small>已通過臨時密碼驗證 · 僅供示範</small></form></dialog></body></html>
+<html lang="zh-Hant-HK">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>肢體專區・信望愛福音會筲箕灣堂</title>
+<meta name="description" content="信望愛福音會筲箕灣堂肢體專區。">
+<link rel="icon" href="/assets/img/church-seal.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chiron+Hei+HK:wght@400;500;700&amp;family=Chiron+Sung+HK:wght@500;700;900&amp;display=swap">
+<link rel="stylesheet" href="/assets/site.css">
+<script src="/assets/site.js" defer></script>
+<link rel="stylesheet" href="/assets/members.css">
+<script src="/assets/pptxgen.bundle.js" defer></script>
+<script src="/members/app.js" defer></script>
+</head>
+<body class="members-page">
+<a class="skip" href="#main">跳到主要內容</a>
+<header class="top">
+  <a class="brand" href="/"><img src="/assets/img/church-seal.png" alt="" width="38" height="38"><span><b>信望愛福音會</b><small>筲箕灣堂</small></span></a>
+  <nav aria-label="主選單">
+    <ul class="nav"><li><a href="/about/">認識我們</a></li><li><a href="/meetings/">聚會時間</a></li><li><a href="/activities/">教會活動</a></li><li><a href="/notices/">教會通告</a></li><li><a href="/contact/">聯絡我們</a></li><li><a class="members" href="/members/" aria-current="page">肢體專區</a></li></ul>
+    <details class="menu"><summary>選單</summary><ul><li><a href="/about/">認識我們</a></li><li><a href="/meetings/">聚會時間</a></li><li><a href="/activities/">教會活動</a></li><li><a href="/notices/">教會通告</a></li><li><a href="/contact/">聯絡我們</a></li><li><a href="/members/">肢體專區</a></li></ul></details>
+  </nav>
+</header>
+<main id="main">
+<div id="app"><div class="workspace member-loading"><p role="status">正在確認登入…</p></div></div>
+<div id="toast" role="status" aria-live="polite"></div>
+<dialog id="entry" aria-labelledby="unit-title"><form method="dialog" class="entry-form">
+  <button class="close icon-button" aria-label="關閉">×</button>
+  <h2 id="unit-title">選擇示範單位</h2>
+  <p>點名、房間及詩歌工具仍在開發中，使用示範資料。將來各單位會有自己的權限。</p>
+  <label>以哪個單位試用？<select id="unit"><option>大衛團</option><option>以諾團</option><option>示羅團</option><option>傳道同工</option><option>網站管理員</option></select></label>
+  <button type="button" id="enter-demo" class="btn">確定</button>
+</form></dialog>
+</main>
+<footer class="foot">
+  <div>
+    <h2>信望愛福音會筲箕灣堂</h2>
+    <p>筲箕灣道 334–336 號華寶商業中心 2 樓 205–209 室<br>電話 <a href="tel:+85225609640">2560 9640</a>・傳真 2567 2117</p>
+  </div>
+  <div>
+    <h2>其他堂會</h2>
+    <ul><li><a href="/about/churches/">旺角堂・2392 3422</a></li><li><a href="/about/churches/">北角堂・2882 2482</a></li></ul>
+  </div>
+  <div>
+    <h2>網站</h2>
+    <ul><li><a href="/members/">肢體專區</a></li><li><a href="/credits/">鳴謝及授權</a></li></ul>
+  </div>
+  <p class="copy"><span>© 信望愛福音會筲箕灣堂・新網站試行版，內容有待教會審閱</span><span lang="en">Faith Hope Charity Evangelical Mission</span></p>
+</footer>
+</body>
+</html>

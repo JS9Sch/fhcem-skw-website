@@ -29,7 +29,7 @@ function header(path) {
   return `<header class="top">
   <a class="brand" href="/"><img src="/assets/img/church-seal.png" alt="" width="38" height="38"><span><b>信望愛福音會</b><small>筲箕灣堂</small></span></a>
   <nav aria-label="主選單">
-    <ul class="nav">${NAV.map(link).join('')}<li><a class="members" href="/members/">肢體專區</a></li></ul>
+    <ul class="nav">${NAV.map(link).join('')}<li><a class="members" href="/members/"${here === '/members/' ? ' aria-current="page"' : ''}>肢體專區</a></li></ul>
     <details class="menu"><summary>選單</summary><ul>${NAV.map(link).join('')}<li><a href="/members/">肢體專區</a></li></ul></details>
   </nav>
 </header>`;
@@ -53,7 +53,7 @@ function footer() {
 </footer>`;
 }
 
-export function page({ path, title, description, body, bodyClass = '' }) {
+export function page({ path, title, description, body, bodyClass = '', head = '' }) {
   const full = path === '/' ? '信望愛福音會筲箕灣堂' : `${title}・信望愛福音會筲箕灣堂`;
   return `<!doctype html>
 <html lang="zh-Hant-HK">
@@ -69,7 +69,7 @@ export function page({ path, title, description, body, bodyClass = '' }) {
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chiron+Hei+HK:wght@400;500;700&amp;family=Chiron+Sung+HK:wght@500;700;900&amp;display=swap">
 <link rel="stylesheet" href="/assets/site.css">
 <script src="/assets/site.js" defer></script>
-</head>
+${head}</head>
 <body${bodyClass ? ` class="${bodyClass}"` : ''}>
 <a class="skip" href="#main">跳到主要內容</a>
 ${header(path)}

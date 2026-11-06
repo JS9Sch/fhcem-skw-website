@@ -11,6 +11,7 @@ import { activitiesPage } from './pages/activities.mjs';
 import { noticesPage, documentPage, covidPage } from './pages/notices.mjs';
 import { contactPage } from './pages/contact.mjs';
 import { creditsPage, loginPage, notFoundPage } from './pages/misc.mjs';
+import { memberIndex } from './pages/members.mjs';
 
 export const PAGES = {
   'index.html': home,
@@ -30,6 +31,7 @@ export const PAGES = {
   'credits/index.html': creditsPage,
   'login/index.html': loginPage,
   '404.html': notFoundPage,
+  '../src/member-index.txt': memberIndex,
 };
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..', 'public');
