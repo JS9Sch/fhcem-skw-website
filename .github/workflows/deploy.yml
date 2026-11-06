@@ -42,6 +42,15 @@ jobs:
             exit 1
           fi
       - run: npm ci
+      # D1 schema first, so the new Worker never runs against missing tables. Needs
+      # "Account → D1 → Edit" on CLOUDFLARE_API_TOKEN. Until the token has it, set the
+      # repository variable D1_MIGRATIONS=local and apply migrations from an authorised machine.
+      - name: Apply attendance D1 migrations
+        if: vars.D1_MIGRATIONS != 'local'
+        run: npx wrangler d1 migrations apply ATT_DB --remote
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
       - run: npm run deploy
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}

@@ -27,6 +27,10 @@ async function verify() {
   assert.equal(memberScript.status, 401, 'Anonymous private script must be denied');
   assert.equal(memberScript.headers.get('cache-control'), 'no-store');
 
+  const attendance = await get('/api/attendance/me');
+  assert.equal(attendance.status, 401, 'Anonymous attendance API must be denied');
+  assert.equal(attendance.headers.get('cache-control'), 'no-store');
+
   const resources = await get('/api/member-resources');
   assert.equal(resources.status, 401, 'Anonymous Google source links must be denied');
   assert.equal(resources.headers.get('cache-control'), 'no-store');
@@ -43,7 +47,7 @@ async function verify() {
 for (let attempt = 1; attempt <= 3; attempt++) {
   try {
     await verify();
-    console.log('Deployment checks passed: homepage, Pages binding, anonymous access protection, four inline PDFs.');
+    console.log('Deployment checks passed: homepage, Pages binding, anonymous access protection (incl. attendance API), four inline PDFs.');
     break;
   } catch (error) {
     if (attempt === 3) throw error;

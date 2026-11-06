@@ -1,6 +1,7 @@
 import memberScript from './member-app.txt';
 import memberHTML from './member-index.txt';
 import { memberResources } from './member-resources.js';
+import { attendanceApi } from './attendance.js';
 import { configured, passwordMatches, sessionCookie, clearCookie, authenticated, revokeSession, SessionStorageUnavailable } from './auth.js';
 export { PreviewSession } from './session-store.js';
 // Member views share one protected page; the script picks the view from the path.
@@ -33,6 +34,8 @@ async function handle(request, env) {
   }
   return login(request,env);
  }
+ // Attendance checks its own methods and, for writes, the Origin (same rule as login).
+ if(path.startsWith('/api/attendance/'))return attendanceApi(request,env);
  if(request.method!=='GET'&&request.method!=='HEAD')return json({error:'method_not_allowed'},405);
  if(path==='/api/session')return json({authenticated:await authenticated(request,env)});
  if(path==='/api/member-resources')return memberResources(request,env);
