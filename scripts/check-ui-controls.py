@@ -74,13 +74,19 @@ try:
             first = page.locator('.filter input[type=radio]').first
             first.focus(); first.press('ArrowRight')
             expect(page.locator('.filter input[value="崇拜"]')).to_be_checked()
-            # 崇拜: 主日崇拜, 週六晚崇拜, 幼兒崇拜, 詩班練詩 (2026-10-25 主日報告).
+            # 崇拜: 主日崇拜, 週六晚崇拜, 幼兒崇拜, 詩班練詩 (2026–2027 聚會時間表).
             expect(page.locator('#week-grid li[data-cat]:visible')).to_have_count(4)
             expect(page.locator('.filter-status')).to_contain_text('4')
             page.goto(BASE + '/meetings/?cat=' + quote('團契'))
             expect(page.locator('.filter input[value="團契"]')).to_be_checked()
             expect(page.locator('#week-grid li[data-cat="崇拜"]:visible')).to_have_count(0)
-            # Meetings without a fixed day (青年主日學) sit under the grid and follow the filter too.
+            # 以斯帖團 meets 週五晚／週六下午: shown in both columns, counted once
+            # (10 fellowships + 家長加油站 + 鄰舍加油站 = 12).
+            expect(page.locator('#week-grid li', has_text='以斯帖團')).to_have_count(2)
+            expect(page.locator('.filter-status')).to_contain_text('顯示 12 項團契聚會')
+            # No "沒有恆常聚會" placeholder on empty days (user, 2026-11-06).
+            expect(page.locator('#week-grid')).not_to_contain_text('沒有恆常聚會')
+            # Meetings without a fixed day (青成聖經班) sit under the grid and follow the filter too.
             expect(page.locator('#week-grid-extra li[data-cat="學習"]')).to_be_hidden()
             page.goto(BASE + '/contact/')
             # Floating-label form (Uiverse alexruix): checks fields, never sends.

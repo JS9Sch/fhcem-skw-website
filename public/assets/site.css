@@ -97,7 +97,6 @@ img{display:block;max-width:100%;height:auto}
 .day li small{font-size:12px;color:var(--ink-soft)}
 .day li.worship time,.day li.worship span{color:var(--red)}
 .day li.worship span{font-weight:700}
-.day .none{font-size:14px;color:var(--ink-soft);writing-mode:vertical-rl;letter-spacing:.3em;margin:4px auto 0}
 .week-extra{list-style:none;display:flex;flex-wrap:wrap;gap:6px 20px;padding:12px 14px;border-bottom:1px solid var(--tile-light);font-size:15px}
 .week-extra li{display:flex;align-items:baseline;gap:8px}
 .week-extra li span,.week-extra li small{color:var(--ink-soft)}
@@ -114,7 +113,8 @@ img{display:block;max-width:100%;height:auto}
 .photos .e img{aspect-ratio:3/4.3;object-position:30% 50%}
 .photos figcaption{font-size:13px;color:var(--ink-soft);margin-top:8px;line-height:1.5}
 .addr{font-family:var(--sung);font-weight:900;font-size:clamp(28px,2.8vw,40px);line-height:1.3;letter-spacing:.02em}
-.addr span{display:block;font-weight:700;font-size:.62em;margin-top:6px;letter-spacing:.06em}
+.addr>span{display:block;font-weight:700;font-size:.62em;margin-top:6px;letter-spacing:.06em}
+.addr>.rooms{font-weight:500;font-size:.46em;margin-top:4px;color:var(--ink-soft)}
 .facts{margin-top:28px;border-top:1.5px solid var(--ink)}
 .facts div{display:grid;grid-template-columns:4.5em 1fr;gap:12px;padding:12px 0;border-bottom:1px solid var(--tile-light);align-items:baseline}
 .facts dt{font-size:14px;color:var(--ink-soft);letter-spacing:.12em}
@@ -508,7 +508,6 @@ button.btn{border:0;font:inherit;font-weight:700;cursor:pointer}
   .day h3{margin:0;flex-direction:column;align-items:flex-start;gap:2px}
   .day li{grid-template-columns:3.6em 1fr;column-gap:8px}
   .day li small{grid-column:2}
-  .day .none{writing-mode:horizontal-tb;margin:0;letter-spacing:.1em}
   .photos{grid-template-columns:1fr 1fr}
   .stops{grid-template-columns:1fr}
   .stop{padding-top:40px}
