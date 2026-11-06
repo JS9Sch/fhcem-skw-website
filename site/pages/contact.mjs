@@ -7,7 +7,7 @@ export function contactPage() {
   const body = pagehead({ title: '聯絡我們', lead: `歡迎致電 <a class="link" href="tel:${CHURCH.tel}">${CHURCH.phone}</a>，或在聚會時間直接前來。` }) +
     sec({ id: 'visit', label: '怎樣來', body: `<div class="visit">
       <div class="reveal">${addressBlock()}<div class="cta">${mapsButton}</div></div>
-      <div class="mapcol reveal">${waysBlock({ open: true })}</div>
+      <div class="mapcol reveal">${waysBlock()}</div>
     </div>${steps}` }) +
     sec({ id: 'staff', label: '傳道同工', body: `<div class="staff-grid">
       <dl class="staff reveal">${STAFF.map(([r, n]) => `<div><dt>${r}</dt><dd>${n}</dd></div>`).join('')}</dl>
