@@ -45,6 +45,7 @@ python scripts/check-session-revocation.py https://localhost:8787
 python scripts/check-resources.py https://localhost:8787
 python scripts/check-doc-layout.py https://localhost:8787
 python scripts/check-ui-controls.py https://localhost:8787
+python scripts/check-walks.py https://localhost:8787
 python scripts/check-preview.py https://localhost:8787
 ```
 
@@ -105,7 +106,7 @@ secret 的 JSON 結構為 `sermons: {url, embedUrl, tabs: [{label, url}]}` 及 `
 
 七個元件改編自 Uiverse Galaxy（MIT）：箭嘴按鈕、搜尋欄、點名分段選擇、勾選框、聚會分類選項、浮動標籤輸入欄及載入動畫。作者和原始連結列於 `/credits/`，完整授權位於 `/assets/UIVERSE-LICENSE.txt`。使用原生 HTML/CSS/JavaScript，沒有新增 UI 套件。動態只在系統沒有開啟「減少動態」時播放；正式版不設動態開關。
 
-`check-pages.py` 檢查所有公開頁面（加 `--members` 亦檢查六個肢體專區畫面）在 1440、390、320 寬的 JS 錯誤、橫向溢出、壞圖、短連結換行及減少動態；`check-ui-controls.py` 驗證搜尋、點名、分類選項、提示框、聯絡表格及主要按鈕的鍵盤操作。截圖保存在忽略版本控制的 `evidence/`。
+`check-pages.py` 檢查所有公開頁面（加 `--members` 亦檢查六個肢體專區畫面）在 1440、390、320 寬的 JS 錯誤、橫向溢出、壞圖、短連結換行及減少動態；`check-ui-controls.py` 驗證搜尋、點名、分類選項、提示框、聯絡表格及主要按鈕的鍵盤操作。`check-walks.py` 驗證「怎樣來」地圖的六條步行路線（按站名或地圖標記顯示、一次一條、再按收起、說明文字、手機上自動捲到路線、減少動態、未載入程式時保持純文字）。截圖保存在忽略版本控制的 `evidence/`。
 
 ## 網址
 

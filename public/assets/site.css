@@ -258,6 +258,25 @@ details.bus h4{font-size:15px;font-weight:700;margin:16px 0 8px;letter-spacing:.
 .bus-note{margin-top:12px;font-size:14px;color:var(--ink-soft);line-height:1.7}
 .rt-tag{display:inline-block;font-size:11px;font-weight:700;border:1px solid var(--ink-soft);border-radius:2px;padding:0 5px;margin-right:4px;color:var(--ink)}
 .maphint{display:none;font-size:12px;color:var(--ink-soft);margin-top:6px}
+.walk-hint{display:none;font-size:13px;color:var(--ink-soft);margin-top:6px}
+.js .walk-hint{display:block}
+/* Walking routes on the map: hidden until a stop is chosen. */
+.map .walk{display:none}
+.map .walk.on{display:inline}
+.map .walk-case{fill:none;stroke:#FBFAF7;stroke-width:7;stroke-linecap:round;stroke-linejoin:round}
+.map .walk-line{fill:none;stroke:var(--red);stroke-width:3.5;stroke-linecap:round;stroke-linejoin:round}
+.map .walk-end{fill:var(--red);stroke:#fff;stroke-width:2}
+.js .map .hit{cursor:pointer}
+.map .hit.sel > rect,.map .hit.sel > circle{stroke:var(--red);stroke-width:3}
+@media (prefers-reduced-motion:no-preference){
+  .map .walk.on .walk-line{stroke-dasharray:1;animation:walk-draw .8s ease-out both}
+  @keyframes walk-draw{from{stroke-dashoffset:1}to{stroke-dashoffset:0}}
+}
+.walk-btn{font:inherit;font-weight:700;color:var(--ink);background:none;border:0;border-bottom:1.5px dashed var(--red);padding:0 1px;border-radius:0;cursor:pointer;line-height:inherit}
+.walk-btn:hover{color:var(--red)}
+.walk-btn[aria-pressed="true"]{background:var(--red);color:#fff;border-bottom-color:var(--red-deep)}
+.walk-btn:focus-visible{outline:2px solid var(--red);outline-offset:2px}
+.walk-note:not(:empty){margin-top:8px;padding:8px 12px;border-left:4px solid var(--red);background:#FBFAF7;font-size:15px;line-height:1.6}
 .src{font-size:12px;color:var(--ink-soft);margin-top:10px}
 .sec > .steps{grid-column:2}
 .steps{list-style:none;display:grid;grid-template-columns:.8fr 1fr 1.5fr;gap:16px;margin-top:clamp(28px,4vw,48px);align-items:end}
