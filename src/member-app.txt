@@ -36,108 +36,154 @@ function bindMemberSearch(id,update){
  sync();
 }
 // ---------- 團契點名 (Cloudflare D1, /api/attendance/) ----------
-// Unsent saves wait in localStorage (member ids and marks only, never names) and are sent when the network is back.
-const ATT_API='/api/attendance/',ATT_QUEUE='fhcem-att-queue-v1',ATT_UNIT='fhcem-att-unit';
+// Who: a fellowship's roll-call link (that group only, no member password), or 同工 /
+// admin signed in with their password. Each tap saves at once: one person's mark, or one
+// meeting field, so several phones can mark the same meeting together. Saves that cannot
+// be sent wait in localStorage (member ids and values only, never names) and go out when
+// the network is back.
+const ATT_API='/api/attendance/',ATT_QUEUE='fhcem-att-queue-v2';
+try{localStorage.removeItem('fhcem-att-queue-v1');localStorage.removeItem('fhcem-att-unit')}catch{}
 const ST={present:'出席',leave:'請假',absent:'缺席'},WD='日一二三四五六',WEEKS=['第一週','第二週','第三週','第四週','第五週'];
-const ATT_ERR={invalid_code:'點名碼不正確。',code_not_set:'這個團未設定點名碼，請聯絡傳道同工。',rate_limited:'嘗試次數太多，請一分鐘後再試。',unavailable:'點名服務暫時未能使用，請稍後再試。',invalid_unit:'請先選擇團或身分。',future_date:'未到聚會日期，不能記錄出席；如不聚會可選「取消」。',not_scheduled:'這天不是這個團的聚會日期。',reschedule_too_far:'改期日期要在原定日期前後 31 日內。',invalid_count:'人數不正確。',invalid_marks:'名單已有變動，請重新載入後再點名。',invalid_name:'稱呼要有 1 至 20 個字。',duplicate_name:'名單已有這個稱呼。',too_many_members:'名單人數已達上限。',invalid_code_format:'自訂點名碼要有 8 至 32 個英文字母或數字。',forbidden:'這個點名身分不能查看或修改這個團。',invalid_date:'日期不正確。',invalid_month:'月份不正確。',group_not_found:'找不到這個團。',meeting_not_found:'找不到這次聚會。',no_meeting:'未有聚會日期。'};
+const ATT_ERR={invalid_link:'這條點名連結已失效或不完整。請向傳道同工索取新連結。',link_required:'團契點名要用團契的點名連結開啟。',rate_limited:'嘗試次數太多，請一分鐘後再試。',unavailable:'點名服務暫時未能使用，請稍後再試。',future_date:'未到聚會日期，不能記錄出席；如不聚會可選「取消」。',not_scheduled:'這天不是這個團的聚會日期。',reschedule_too_far:'改期日期要在原定日期前後 31 日內。',invalid_count:'人數不正確。',invalid_member:'名單已有變動，請重新載入。',invalid_status:'出席狀態不正確。',meeting_cancelled:'這次聚會已取消；要先改回「照常」才可以點名。',invalid_name:'稱呼要有 1 至 20 個字。',duplicate_name:'名單已有這個稱呼。',too_many_members:'名單人數已達上限。',invalid_password_format:'同工密碼要有 8 至 32 個英文字母或數字（不分大小楷）。',invalid_mode:'點名方式不正確。',forbidden:'這個點名身分不能查看或修改這個團。',invalid_date:'日期不正確。',invalid_month:'月份不正確。',group_not_found:'找不到這個團。',meeting_not_found:'找不到這次聚會。',no_meeting:'未有聚會日期。',offline:'網絡未連接。恢復網絡後請重新讀取。'};
 const attErr=code=>ATT_ERR[code]||'未能完成，請稍後再試。';
-let att={me:null,roll:null,draft:null,moved:false,dirty:false,flushing:false};
+let att={me:null,roll:null,cur:null,base:null,linkOnly:false,flushing:false,states:new Map(),timers:{}};
 const attParams=()=>new URLSearchParams(location.search);
 function attUrl(params){const q=new URLSearchParams();for(const [k,v] of Object.entries(params))if(v!==''&&v!=null)q.set(k,v);const s=q.toString();return '/members/attendance/'+(s?'?'+s:'')}
 const dayOf=d=>WD[new Date(d+'T00:00:00Z').getUTCDay()];
 const fmtDate=(d,year)=>d?`${year?Number(d.slice(0,4))+' 年 ':''}${Number(d.slice(5,7))} 月 ${Number(d.slice(8,10))} 日（${dayOf(d)}）`:'';
-const hhmm=()=>new Date().toLocaleTimeString('zh-HK',{hour:'2-digit',minute:'2-digit',hour12:false});
+const hhmm=t=>(t?new Date(t):new Date()).toLocaleTimeString('zh-HK',{timeZone:'Asia/Hong_Kong',hour:'2-digit',minute:'2-digit',hour12:false});
 const attLoading=()=>'<p class="resource-status" role="status"><span class="spinner" aria-hidden="true"></span>正在讀取…</p>';
 const attProblem=code=>`<section class="panel"><h2 class="att-h2">未能讀取</h2><p class="att-help">${attErr(code)}</p><button type="button" class="att-btn" data-att-reload>重新讀取</button></section>`;
+const attLinkGone=()=>`<section class="panel att-unlock" id="att-link-gone"><h2 class="att-h2">點名連結已失效</h2><p class="att-help">這部手機記住的點名連結已失效：可能已被傳道同工重設，或已超過 90 日未用。請再按團契群組內最新的點名連結。</p><p class="att-help">未送出的點名仍會留在這部手機，用新連結開啟後會自動送出。</p></section>`;
 class AttStop extends Error{}
-// JSON call; a lost session goes to the login page (except for quiet background calls).
+// A lost login goes to the login page; a phone that only had a (now reset) link is told so.
+function attSignedOut(){if(att.linkOnly){const root=$('#att-root');if(root)root.innerHTML='<div id="att-unsent" class="att-unsent" hidden></div>'+attLinkGone();attBanner();return}location.replace('/login/?next='+encodeURIComponent(location.pathname))}
 async function attFetch(path,{method='GET',body,quiet=false}={}){
  const r=await fetch(ATT_API+path,{method,cache:'no-store',headers:body?{'Content-Type':'application/json'}:{},body:body?JSON.stringify(body):undefined});
  const data=await r.json().catch(()=>({}));
- if(r.status===401&&data.error==='authentication_required'&&!quiet){location.replace('/login/?next='+encodeURIComponent(location.pathname));throw new AttStop()}
+ if(r.status===401&&data.error==='authentication_required'&&!quiet){attSignedOut();throw new AttStop()}
  return {ok:r.ok,status:r.status,data};
 }
-function attQueue(){try{const q=JSON.parse(localStorage.getItem(ATT_QUEUE)||'[]');return Array.isArray(q)?q.filter(x=>x&&x.key&&x.body):[]}catch{return []}}
+
+// ----- saving: one item per person (mark) or per meeting (fields merged), latest value wins -----
+const meetingKey=b=>`${b.group}|${b.kind==='regular'?b.scheduled_date:(b.ref||b.id)}`;
+const opKey=(path,b)=>path==='mark'?`m|${meetingKey(b)}|${b.member}`:`f|${meetingKey(b)}`;
+function attQueue(){try{const q=JSON.parse(localStorage.getItem(ATT_QUEUE)||'[]');return Array.isArray(q)?q.filter(x=>x&&x.key&&x.body&&(x.path==='mark'||x.path==='meeting')):[]}catch{return []}}
 function attSetQueue(q){try{if(q.length)localStorage.setItem(ATT_QUEUE,JSON.stringify(q));else localStorage.removeItem(ATT_QUEUE);return true}catch{return false}}
-const qKey=b=>`${b.group}|${b.kind==='regular'?b.scheduled_date:(b.ref||b.id)}`;
-function attEnqueue(body){const key=qKey(body);return attSetQueue([...attQueue().filter(x=>x.key!==key),{key,body,at:Date.now()}])}
-const attDequeue=key=>attSetQueue(attQueue().filter(x=>x.key!==key));
+function attEnqueue(path,body){const key=opKey(path,body),q=attQueue(),old=q.find(x=>x.key===key);return attSetQueue([...q.filter(x=>x.key!==key),{key,path,body:path==='meeting'&&old?{...old.body,...body}:body,at:Date.now()}])}
+const attLatest=new Map(),attBusy=new Set();
+// Status of one item: saving / saved / queued / failed. Rows show it next to the name.
+function attSetState(key,state,message=''){
+ att.states.set(key,{state,message});
+ const row=attRowFor(key);
+ if(row){const s=row.querySelector('.att-mark-state');s.dataset.s=state;s.textContent={saving:'儲存中',saved:'已儲存',queued:'未送出',failed:'未能儲存'}[state]||'';s.title=message}
+ attStatusLine();
+}
+function attRowFor(key){if(!key.startsWith('m|')||!att.base||key.slice(2,key.lastIndexOf('|'))!==meetingKey(att.base))return null;return document.querySelector(`.att-row[data-member="${key.slice(key.lastIndexOf('|')+1)}"]`)}
+function attSave(path,body){
+ const key=opKey(path,body),prev=attLatest.get(key);
+ attLatest.set(key,{path,body:path==='meeting'&&prev?{...prev.body,...body}:body});
+ attSetState(key,'saving');
+ if(!attBusy.has(key))attPump(key);
+}
+async function attPump(key){
+ attBusy.add(key);
+ try{while(attLatest.has(key)){const {path,body}=attLatest.get(key);attLatest.delete(key);await attSendOnce(key,path,body)}}
+ finally{attBusy.delete(key)}
+}
+async function attSendOnce(key,path,body){
+ const queued=attQueue().find(x=>x.key===key);
+ if(queued&&path==='meeting')body={...queued.body,...body};
+ let r;try{r=await fetch(ATT_API+path,{method:'PUT',cache:'no-store',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})}catch{return attKeep(key,path,body)}
+ const data=await r.json().catch(()=>({}));
+ if(r.ok){attSetQueue(attQueue().filter(x=>x.key!==key));attApply(path,body,data);attSetState(key,'saved');attBanner();return}
+ if(r.status===401||r.status===403&&data.error==='link_required'){attKeep(key,path,body);if(r.status===401)attSignedOut();return}
+ if(r.status>=500||r.status===429)return attKeep(key,path,body);
+ attSetQueue(attQueue().filter(x=>x.key!==key));attSetState(key,'failed',attErr(data.error));attRevert(path,body);toast(attErr(data.error));
+}
+function attKeep(key,path,body){if(attEnqueue(path,body))attSetState(key,'queued');else attSetState(key,'failed','未能暫存在這部手機');attBanner()}
+// Show what the server saved; other people's marks come in with every reply.
+function attApply(path,body,data){
+ if(!att.roll||meetingKey(body)!==meetingKey(att.base))return;
+ const m=data.meeting,queue=attQueue(),fk=`f|${meetingKey(att.base)}`;
+ if(m){att.roll.meeting=m;if(att.base.kind==='extra'&&!att.base.ref&&m.id)att.base.id=m.id}
+ const marks=data.marks;
+ if(marks&&att.cur){for(const row of att.roll.members){const k=opKey('mark',{...att.base,member:row.id});if(attLatest.has(k)||attBusy.has(k)&&k!==opKey(path,body)||queue.some(x=>x.key===k))continue;if(marks[row.id])att.cur.marks[row.id]=marks[row.id];else delete att.cur.marks[row.id]}}
+ // Meeting fields changed on another phone come in too, unless this phone has its own change waiting.
+ if(m&&att.cur){const waiting={...queue.find(x=>x.key===fk)?.body,...attLatest.get(fk)?.body};for(const f of ['state','actual_date','new_friends','other_guests','headcount','member_count']){if(path==='meeting'&&f in body||f in waiting||att.timers[f]||document.activeElement?.dataset?.count===f)continue;if(f==='actual_date'&&att.forceMoved)continue;att.cur[f]=m[f]}}
+ attPaint();
+}
+// A refused change goes back to what the server has.
+async function attRevert(path,body){
+ if(!att.roll||meetingKey(body)!==meetingKey(att.base))return;
+ const q=new URLSearchParams({group:att.base.group});if(att.base.kind==='regular')q.set('date',att.base.scheduled_date);else if(att.base.ref)q.set('ref',att.base.ref);else q.set('id',att.base.id);
+ try{const r=await attFetch('meeting?'+q,{quiet:true});if(!r.ok)return;att.roll=r.data;att.cur=attStart(r.data,true);attPaint()}catch{}
+}
 function attBanner(){
- const box=$('#att-unsent');if(!box)return;const q=attQueue();box.hidden=!q.length;
- if(!q.length){box.innerHTML='';return}
- const names=Object.fromEntries([...(att.me?.groups||[]),...(att.me?.units||[])].map(g=>[g.id,g.name]));
- box.innerHTML=`<p><strong>未送出</strong>${q.map(x=>`${esc(names[x.body.group]||'')} ${fmtDate(x.body.actual_date)}`).join('、')}的點名仍在這部手機，恢復網絡後會自動送出。請不要清除瀏覽器資料。</p><button type="button" class="att-btn" id="att-retry">立即重試</button>`;
+ const box=$('#att-unsent');if(!box)return;const q=attQueue();box.hidden=!q.length;if(!q.length){attStatusLine();return}
+ const names=Object.fromEntries((att.me?.groups||[]).map(g=>[g.id,g.name]));
+ const meetings=[...new Set(q.map(x=>`${names[x.body.group]||''} ${x.body.kind==='regular'?fmtDate(x.body.scheduled_date):'額外聚會'}`.trim()))];
+ box.innerHTML=`<p><strong>未送出 ${q.length} 項</strong>${esc(meetings.join('、'))}的點名仍在這部手機，恢復網絡後會自動送出。請不要清除瀏覽器資料。</p><button type="button" class="att-btn" id="att-retry">立即重試</button>`;
  $('#att-retry').addEventListener('click',()=>attFlush(true));
+ attStatusLine();
 }
 async function attFlush(manual=false){
  if(att.flushing)return;const q=attQueue();if(!q.length){attBanner();return}
- att.flushing=true;let sent=0,blocked='';
+ att.flushing=true;let sent=0,stopped=false;
  try{for(const item of q){
-  let r;try{r=await fetch(ATT_API+'meeting',{method:'PUT',cache:'no-store',headers:{'Content-Type':'application/json'},body:JSON.stringify(item.body)})}catch{blocked='offline';break}
-  if(r.ok){attDequeue(item.key);sent++;continue}
-  const data=await r.json().catch(()=>({}));
-  if(r.status===401){blocked='login';break}
-  if(data.error==='unlock_required'){blocked='unlock';break}
-  if(r.status>=500||r.status===429){blocked='later';break}
-  attDequeue(item.key);toast('一次未送出的點名未能儲存：'+attErr(data.error));
+  if(attBusy.has(item.key))continue;
+  attBusy.add(item.key);
+  try{
+   let r;try{r=await fetch(ATT_API+item.path,{method:'PUT',cache:'no-store',headers:{'Content-Type':'application/json'},body:JSON.stringify(item.body)})}catch{stopped=true;break}
+   const data=await r.json().catch(()=>({}));
+   if(r.ok){attSetQueue(attQueue().filter(x=>!(x.key===item.key&&x.at===item.at)));sent++;attApply(item.path,item.body,data);if(att.states.get(item.key)?.state==='queued')attSetState(item.key,'saved');continue}
+   if(r.status===401||r.status===403||r.status>=500||r.status===429){stopped=true;break}
+   attSetQueue(attQueue().filter(x=>x.key!==item.key));attSetState(item.key,'failed',attErr(data.error));toast('一項未送出的點名未能儲存：'+attErr(data.error));
+  }finally{attBusy.delete(item.key);if(attLatest.has(item.key))attPump(item.key)}
  }}finally{att.flushing=false}
  attBanner();
- if(sent){toast(attQueue().length?`已送出 ${sent} 次點名`:'未送出的點名已全部送出');if(att.roll&&$('#att-save')&&!att.dirty&&!attQueue().some(x=>x.key===qKey(att.draft)))attView()}
- else if(manual)toast({offline:'網絡仍未連接，稍後會再試。',login:'請先重新登入，之後會自動送出。',unlock:'點名碼已更改，請重新輸入點名碼。',later:'伺服器暫時未能儲存，稍後會再試。'}[blocked]||'');
+ if(sent)toast(attQueue().length?`已送出 ${sent} 項點名`:'未送出的點名已全部送出');
+ else if(manual&&stopped)toast(navigator.onLine?'仍未能送出，稍後會再試。':'網絡未連接，恢復網絡後會自動送出。');
 }
 window.addEventListener('online',()=>attFlush());
 setInterval(()=>{if(navigator.onLine&&attQueue().length)attFlush()},20000);
+window.addEventListener('beforeunload',e=>{if(attLatest.size||attBusy.size){e.preventDefault();e.returnValue=''}});
 
-function attendance(){return workShell('attendance',title('團契點名','在聚會現場用手機為自己的團點名。')+'<div id="att-root" aria-live="polite">'+attLoading()+'</div>')}
+// ----- page -----
+function linkShell(content){return `<div class="workspace link-workspace"><div class="member-head"><nav class="crumbs" aria-label="位置"><ol><li><a href="/">主頁</a></li><li aria-current="page">團契點名</li></ol></nav></div><div class="work-main">${content}</div></div>`}
+function attendance(){const body=title('團契點名','在聚會現場用手機為自己的團點名。每按一次即儲存。')+'<div id="att-root" aria-live="polite">'+attLoading()+'</div>';return att.linkOnly?linkShell(body):workShell('attendance',body)}
 async function loadAttendance(sequence){
  const root=$('#att-root');if(!root)return;
  let r;try{r=await attFetch('me')}catch(e){if(e instanceof AttStop||sequence!==routeSequence)return;root.innerHTML='<div id="att-unsent" class="att-unsent" hidden></div>'+attProblem('offline');attBanner();return}
- if(sequence!==routeSequence||!root.isConnected)return;
+ if(sequence!==routeSequence)return;
  if(!r.ok){root.innerHTML=attProblem(r.data.error);return}
  att.me=r.data;
- if(!att.me.role){attUnlock(root);attBanner();return}
- const tabs=[['roll','點名'],['history','過去聚會'],['roster','名單'],['report','月訊表'],['stats','統計'],...(att.me.role.role!=='group'?[['codes','點名碼'],['settings','設定']]:[])];
+ if(!att.me.role){root.innerHTML=`<div id="att-unsent" class="att-unsent" hidden></div><section class="panel att-unlock" id="att-nolink" aria-labelledby="att-nolink-title"><h2 class="att-h2" id="att-nolink-title">用團契的點名連結開啟</h2><p class="att-help">每個團契有一條點名連結，由傳道同工發到團契群組。在這部手機按一次連結，就可以為該團點名，手機會記住 90 日。</p><p class="att-help">傳道同工：請登出，再用同工密碼登入。</p></section>`;attBanner();return}
+ const staff=att.me.role.role!=='group';
+ const tabs=[['roll','點名'],['history','過去聚會'],['roster','名單'],['report','月訊表'],['stats','統計'],...(staff?[['links','點名連結'],['settings','設定']]:[])];
  const p=attParams(),tab=tabs.some(t=>t[0]===p.get('tab'))?p.get('tab'):'roll',group=p.get('group')||'';
- root.innerHTML=`<div class="att-bar"><p>點名身分：<b>${esc(att.me.role.name)}</b></p><button type="button" class="link-button" id="att-lock">鎖上點名</button></div>
+ root.innerHTML=`<div class="att-bar"><p>點名身分：<b>${esc(att.me.role.name)}</b>${staff?'':'（點名連結）'}</p>${staff?'':'<button type="button" class="link-button" id="att-forget">在這部手機移除連結</button>'}</div>
  <nav class="att-tabs" aria-label="點名功能">${tabs.map(([id,label])=>`<a href="${attUrl({tab:id==='roll'?'':id,group})}"${id===tab?' aria-current="page"':''}>${label}</a>`).join('')}</nav>
  <div id="att-unsent" class="att-unsent" hidden></div><div id="att-view" data-tab="${tab}"></div>`;
- $('#att-lock').addEventListener('click',attLock);
+ $('#att-forget')?.addEventListener('click',attForget);
  attBanner();attFlush();
  await attView(sequence);
 }
 async function attView(sequence=routeSequence){
  const view=$('#att-view');if(!view)return;
  view.innerHTML=attLoading();
- try{await ({roll:attRoll,history:attHistory,roster:attRoster,report:attReport,stats:attStats,codes:attCodes,settings:attSettings}[view.dataset.tab])(view,sequence)}
+ try{await ({roll:attRoll,history:attHistory,roster:attRoster,report:attReport,stats:attStats,links:attLinks,settings:attSettings}[view.dataset.tab])(view,sequence)}
  catch(e){if(e instanceof AttStop||sequence!==routeSequence)return;view.innerHTML=attProblem(navigator.onLine?'unavailable':'offline')}
  view.querySelector('[data-att-reload]')?.addEventListener('click',()=>attView());
 }
-ATT_ERR.offline='網絡未連接。恢復網絡後請重新讀取。';
-async function attLock(){
- if(!confirm('鎖上後，這部裝置要重新輸入點名碼。確定鎖上？'))return;
- try{const r=await attFetch('lock',{method:'POST',body:{}});if(!r.ok)throw new Error()}catch(e){if(!(e instanceof AttStop))toast('未能鎖上，請檢查網絡後再試。');return}
- toast('已鎖上點名');go('/members/attendance/');
+async function attForget(){
+ if(!confirm(`在這部手機移除「${att.me.role.name}」的點名連結？之後要再按團契群組內的連結才可以點名。`))return;
+ try{const r=await attFetch('forget',{method:'POST',body:{}});if(!r.ok)throw new Error()}catch(e){if(!(e instanceof AttStop))toast('未能移除，請檢查網絡後再試。');return}
+ toast('已在這部手機移除點名連結');
+ if(att.linkOnly){$('#att-root').innerHTML='<section class="panel att-unlock" id="att-forgotten"><h2 class="att-h2">已移除點名連結</h2><p class="att-help">這部手機已不再記住點名連結。要再點名，請按團契群組內的點名連結。</p><a class="att-btn" href="/">返回主頁</a></section>';return}
+ go('/members/attendance/');
 }
-function attUnlock(root){
- let last='';try{last=localStorage.getItem(ATT_UNIT)||''}catch{}
- const opt=(v,l)=>`<option value="${esc(v)}"${v===last?' selected':''}>${esc(l)}</option>`;
- root.innerHTML=`<div id="att-unsent" class="att-unsent" hidden></div><section class="panel att-unlock" aria-labelledby="att-unlock-title"><h2 class="att-h2" id="att-unlock-title">輸入點名碼</h2><p class="att-help">每個團有自己的點名碼，由傳道同工或網站管理員提供。這部裝置會記住 90 日。</p>
- <form id="att-unlock-form" novalidate><label class="att-pick">你的團／身分<select id="att-unit" required><option value="">請選擇</option><optgroup label="團契／小組">${att.me.units.map(u=>opt(u.id,u.name)).join('')}</optgroup><optgroup label="其他">${opt('staff','傳道同工')}${opt('admin','網站管理員')}</optgroup></select></label>
- <div class="field"><input id="att-code" type="password" maxlength="64" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder=" " required aria-describedby="att-unlock-error"><label for="att-code">點名碼</label></div>
- <p class="error" id="att-unlock-error" role="alert"></p><button class="att-btn primary" type="submit" id="att-unlock-submit">解鎖點名</button></form></section>`;
- $('#att-unlock-form').addEventListener('submit',async e=>{
-  e.preventDefault();const unit=$('#att-unit').value,code=$('#att-code').value.trim(),error=$('#att-unlock-error'),button=$('#att-unlock-submit');
-  if(!unit){error.textContent=attErr('invalid_unit');$('#att-unit').focus();return}
-  if(!code){error.textContent='請輸入點名碼。';$('#att-code').focus();return}
-  button.disabled=true;error.textContent='';
-  try{const r=await attFetch('unlock',{method:'POST',body:{unit,code}});
-   if(r.ok){try{localStorage.setItem(ATT_UNIT,unit)}catch{}toast('已解鎖點名');route();return}
-   error.textContent=attErr(r.data.error);$('#att-code').value='';$('#att-code').focus();
-  }catch(err){if(!(err instanceof AttStop))error.textContent='網絡未連接，請稍後再試。'}
-  finally{button.disabled=false}
- });
-}
-// Staff choose a group; a group role only ever sees its own.
+
 function attGroups(kinds){return att.me.groups.filter(g=>!kinds||kinds.includes(g.kind))}
 function attGroupId(kinds){const list=attGroups(kinds),want=attParams().get('group');return (list.find(g=>g.id===want)||list.find(g=>g.kind==='fellowship')||list[0])?.id}
 function attGroupPicker(current,kinds){
@@ -149,6 +195,20 @@ function attGroupPicker(current,kinds){
 function bindGroupPicker(view,extra={}){view.querySelector('#att-group')?.addEventListener('change',e=>go(attUrl({tab:$('#att-view').dataset.tab==='roll'?'':$('#att-view').dataset.tab,group:e.target.value,...extra})))}
 function counter(key,label,note,max=999){return `<div class="att-counter"><span class="att-counter-label" id="lbl-${key}">${label}${note?`<small>${note}</small>`:''}</span><div class="att-stepper"><button type="button" class="att-step" data-step="${key}" data-d="-1" aria-label="${label}減一">−</button><input type="number" inputmode="numeric" min="0" max="${max}" id="att-${key}" data-count="${key}" aria-labelledby="lbl-${key}"><button type="button" class="att-step" data-step="${key}" data-d="1" aria-label="${label}加一">＋</button></div></div>`}
 
+// ----- roll call -----
+// Starting values: the server's meeting (or defaults), then anything still waiting in this phone's queue.
+function attStart(d,fresh=false){
+ const m=d.meeting,kind=att.base.kind;
+ const today=d.today,alt=d.alt_dates||[];
+ const actual=m?.actual_date||(kind==='regular'?(alt.includes(today)?today:d.scheduled_date):today);
+ const cur={state:m?.state||'held',actual_date:actual,new_friends:m?.new_friends||0,other_guests:m?.other_guests||0,headcount:m?.headcount??null,member_count:m?.member_count??null,marks:{...d.marks}};
+ if(!fresh)for(const item of attQueue()){
+  if(meetingKey(item.body)!==meetingKey(att.base))continue;
+  if(item.path==='mark'){if(item.body.status)cur.marks[item.body.member]=item.body.status;else delete cur.marks[item.body.member];att.states.set(item.key,{state:'queued'})}
+  else{for(const f of ['state','actual_date','new_friends','other_guests','headcount','member_count'])if(f in item.body)cur[f]=item.body[f];att.states.set(item.key,{state:'queued'})}
+ }
+ return cur;
+}
 async function attRoll(view,sequence){
  const p=attParams(),gid=attGroupId(),q=new URLSearchParams({group:gid});
  for(const k of ['date','id','ref'])if(p.get(k))q.set(k,p.get(k));
@@ -156,66 +216,86 @@ async function attRoll(view,sequence){
  if(sequence!==routeSequence)return;
  if(!r.ok){view.innerHTML=attGroupPicker(gid)+attProblem(r.data.error);bindGroupPicker(view);return}
  const d=r.data,m=d.meeting,kind=m?.kind||(p.get('ref')?'extra':'regular');
- const base={group:d.group.id,kind,scheduled_date:kind==='regular'?d.scheduled_date:null,ref:kind==='extra'?(m?.ref||p.get('ref')):undefined,id:kind==='extra'&&m&&!m.ref?m.id:undefined};
- const queued=attQueue().find(x=>x.key===qKey(base));
- att.roll=d;att.dirty=false;att.savedAt=null;
- att.draft=queued?{...queued.body,marks:{...queued.body.marks}}:{...base,state:m?.state||'held',actual_date:m?.actual_date||(kind==='regular'?d.scheduled_date:d.today),new_friends:m?.new_friends||0,other_guests:m?.other_guests||0,headcount:m?.headcount??null,marks:{...d.marks}};
- att.moved=kind==='regular'&&att.draft.actual_date!==att.draft.scheduled_date;
- renderRoll(view,queued?'queued':m?'saved':'new');
+ att.roll=d;att.states=new Map();
+ att.base={group:d.group.id,kind,...(kind==='regular'?{scheduled_date:d.scheduled_date}:m&&!m.ref?{id:m.id}:{ref:m?.ref||p.get('ref')})};
+ att.cur=attStart(d);
+ renderRoll(view);
 }
-function renderRoll(view,status){
- const d=att.roll,dr=att.draft,kind=dr.kind,fellowship=d.group.kind==='fellowship';
- const current=kind==='regular'&&d.current;
+const attFellowship=()=>att.roll.group.kind==='fellowship';
+const attCountMode=()=>attFellowship()&&att.roll.group.record_mode==='count';
+const attMoved=()=>att.base.kind==='regular'&&att.cur.actual_date!==att.base.scheduled_date&&!(att.roll.alt_dates||[]).includes(att.cur.actual_date);
+function renderRoll(view){
+ const d=att.roll,kind=att.base.kind,fellowship=attFellowship(),countMode=attCountMode(),alt=d.alt_dates||[];
  const dates=d.nearby.includes(d.scheduled_date)||kind!=='regular'?d.nearby:[...d.nearby,d.scheduled_date].sort();
  const states=kind==='regular'?[['held','照常'],['moved','改期'],['cancelled','取消']]:[['held','照常'],['cancelled','取消']];
+ const days=kind==='regular'&&alt.length?[d.scheduled_date,...alt].sort().reverse():[];
+ const own=att.me.role.role==='group'?'':d.group.id;
+ const names=fellowship&&!countMode?(d.members.length?`<ul class="att-list">${d.members.map(x=>`<li class="att-row" data-member="${x.id}"><span class="att-name">${esc(x.name)}${x.status==='left'?'<small>已離團</small>':''}<span class="att-mark-state" aria-hidden="true"></span></span><div class="status-select" role="group" aria-label="${esc(x.name)} 出席狀態">${Object.entries(ST).map(([s,l])=>`<button type="button" data-mark="${s}" aria-pressed="false">${l}</button>`).join('')}</div></li>`).join('')}</ul>`:`<p class="att-empty">名單未有團友。先到<a href="${attUrl({tab:'roster',group:own})}">「名單」</a>加入團友，或在下面把新朋友加入名單。</p>`):'';
  view.innerHTML=attGroupPicker(d.group.id)+`<section class="panel att-roll" aria-labelledby="att-roll-title">
- <div class="att-meeting"><div><h2 class="att-h2" id="att-roll-title">${esc(d.group.name)}</h2><p class="att-when">${kind==='regular'?fmtDate(d.scheduled_date,true):'額外聚會'}${current?'<span class="att-tag">今次</span>':''}${d.scheduled_date>d.today?'<span class="att-tag">下次</span>':''}${d.meeting?'':'<span class="att-tag muted">未點名</span>'}</p></div>
- ${kind==='regular'?`<label class="att-pick">選擇聚會<select id="att-date">${dates.map(x=>`<option value="${x}"${x===d.scheduled_date?' selected':''}>${fmtDate(x)}${x===d.scheduled_date&&d.current?'・今次':x>d.today?'・下次':''}</option>`).join('')}<option value="extra">＋ 額外聚會…</option></select></label>`:''}</div>
+ <div class="att-meeting"><div><h2 class="att-h2" id="att-roll-title">${esc(d.group.name)}</h2><p class="att-when">${kind==='regular'?fmtDate(d.scheduled_date,true):'額外聚會'}${kind==='regular'&&d.current?'<span class="att-tag">今次</span>':''}${kind==='regular'&&!d.current&&d.scheduled_date>d.today?'<span class="att-tag">下次</span>':''}<span class="att-tag muted" id="att-unrecorded"${d.meeting?' hidden':''}>未點名</span></p></div>
+ ${kind==='regular'?`<label class="att-pick">選擇聚會<select id="att-date">${dates.map(x=>`<option value="${x}"${x===d.scheduled_date?' selected':''}>${fmtDate(x)}${x===d.current_date?'・今次':x>d.today?'・下次':''}</option>`).join('')}<option value="extra">＋ 額外聚會…</option></select></label>`:''}</div>
  <div class="att-state"><div class="status-select" role="group" aria-label="今次聚會">${states.map(([v,l])=>`<button type="button" data-state="${v}" aria-pressed="false">${l}</button>`).join('')}</div>
+ ${days.length?`<div class="status-select att-days" role="group" aria-label="聚會日" id="att-days">${days.map(x=>`<button type="button" data-day="${x}" aria-pressed="false">週${dayOf(x)}（${Number(x.slice(5,7))}/${Number(x.slice(8,10))}）</button>`).join('')}</div>`:''}
  <label class="att-pick att-actual" id="att-actual-wrap"${kind==='regular'?' hidden':''}>${kind==='regular'?'改到哪一天':'聚會日期'}<input type="date" id="att-actual" min="2020-01-01" max="${d.today}"></label></div>
- <p class="att-note" id="att-cancel-note" hidden>今次不聚會：月訊表寫「/」，統計不當 0 人。</p>
- <div id="att-body">${fellowship?`${d.members.length?`<ul class="att-list">${d.members.map(x=>`<li class="att-row" data-member="${x.id}"><span class="att-name">${esc(x.name)}${x.status==='left'?'<small>已離團</small>':''}</span><div class="status-select" role="group" aria-label="${esc(x.name)} 出席狀態">${Object.entries(ST).map(([s,l])=>`<button type="button" data-mark="${s}" aria-pressed="false">${l}</button>`).join('')}</div></li>`).join('')}</ul>`:`<p class="att-empty">名單未有團友。先到<a href="${attUrl({tab:'roster',group:att.me.role.role==='group'?'':d.group.id})}">「名單」</a>加入團友，或在下面把新朋友加入名單。</p>`}
- <div class="att-counters">${counter('new_friends','新朋友')}${counter('other_guests','其他來賓','導師、他團團友等')}</div>
- <div class="att-friend"><button type="button" class="att-btn" id="att-friend-open">新朋友加入名單</button><form id="att-friend-form" class="att-inline-form" hidden><div class="field"><input id="att-friend-name" maxlength="20" autocomplete="off" placeholder=" "><label for="att-friend-name">新朋友的稱呼</label></div><button class="att-btn primary" type="submit">加入並記出席</button><button class="att-btn" type="button" id="att-friend-cancel">取消</button><p class="error" id="att-friend-error" role="alert"></p></form></div>`
+ ${days.length?'<p class="att-help att-days-note">這個團每週聚會一次，可以在週五或週六；兩天都屬照常聚會。</p>':''}
+ <p class="att-note" id="att-cancel-note" hidden>今次不聚會：月訊表寫「/」，統計不當 0 人。已點的名會保留，改回「照常」便會再顯示。</p>
+ <div id="att-body">${fellowship?`${countMode?'<p class="att-note">這個團只記人數（由傳道同工設定）：只填人數，不逐一點名。名單仍然保留。</p>':''}${names}
+ <div class="att-counters">${countMode?counter('member_count','團友'):''}${counter('new_friends','新朋友')}${counter('other_guests','其他來賓','導師、他團團友等')}</div>
+ ${countMode?'':`<div class="att-friend"><button type="button" class="att-btn" id="att-friend-open">新朋友加入名單</button><form id="att-friend-form" class="att-inline-form" hidden><div class="field"><input id="att-friend-name" maxlength="20" autocomplete="off" placeholder=" "><label for="att-friend-name">新朋友的稱呼</label></div><button class="att-btn primary" type="submit">加入並記出席</button><button class="att-btn" type="button" id="att-friend-cancel">取消</button><p class="error" id="att-friend-error" role="alert"></p></form></div>`}`
  :`<div class="att-counters">${counter('headcount','總人數','',9999)}</div>`}</div>
- <div class="att-savebar"><p class="att-sum" id="att-sum"></p><p class="att-status" id="att-status" role="status"></p><button type="button" class="att-btn primary" id="att-save">儲存點名</button></div></section>`;
- bindGroupPicker(view);bindRoll(view);updateRoll(status);
+ <div class="att-savebar"><p class="att-sum" id="att-sum"></p><p class="att-status" id="att-status" role="status"></p></div></section>`;
+ bindGroupPicker(view);bindRoll(view);attPaint();
+ for(const [key,{state,message}] of att.states)attSetState(key,state,message);
 }
-function updateRoll(status){
- const d=att.roll,dr=att.draft,fellowship=d.group.kind==='fellowship',cancelled=dr.state==='cancelled';
- const st=cancelled?'cancelled':att.moved?'moved':'held';
+// Draw the current values (after a tap, a reply from the server, or a revert).
+function attPaint(){
+ if(!$('#att-sum'))return;
+ const d=att.roll,cur=att.cur,fellowship=attFellowship(),countMode=attCountMode(),cancelled=cur.state==='cancelled',moved=attMoved();
+ const st=cancelled?'cancelled':moved?'moved':'held';
  document.querySelectorAll('[data-state]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.state===st));
+ const days=$('#att-days');if(days){days.hidden=st!=='held';days.querySelectorAll('[data-day]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.day===cur.actual_date))}
  const wrap=$('#att-actual-wrap'),actual=$('#att-actual');
- if(dr.kind==='regular')wrap.hidden=st!=='moved';
- if(document.activeElement!==actual)actual.value=dr.actual_date||'';
+ if(att.base.kind==='regular')wrap.hidden=!(st==='moved'||att.forceMoved&&!cancelled);
+ if(document.activeElement!==actual)actual.value=st==='moved'||att.base.kind!=='regular'?cur.actual_date||'':'';
  $('#att-cancel-note').hidden=!cancelled;$('#att-body').hidden=cancelled;
- document.querySelectorAll('.att-row').forEach(row=>row.querySelectorAll('[data-mark]').forEach(b=>b.setAttribute('aria-pressed',dr.marks[row.dataset.member]===b.dataset.mark)));
- document.querySelectorAll('[data-count]').forEach(i=>{if(document.activeElement!==i)i.value=dr[i.dataset.count]??''});
- const shown=fellowship?d.members.filter(x=>x.status==='active'||dr.marks[x.id]):[];
- const n=s=>shown.filter(x=>dr.marks[x.id]===s).length,unmarked=shown.filter(x=>!dr.marks[x.id]).length;
- const totalCount=cancelled?null:fellowship?n('present')+(dr.new_friends||0)+(dr.other_guests||0):dr.headcount;
- $('#att-sum').innerHTML=cancelled?'今次取消':fellowship?`出席 <b>${n('present')}</b>・請假 <b>${n('leave')}</b>・缺席 <b>${n('absent')}</b>${unmarked?`・<span class="att-unmarked">未點 <b>${unmarked}</b></span>`:''}<span class="att-total">總人數 <b>${totalCount}</b></span>`:`<span class="att-total">總人數 <b>${totalCount??'—'}</b></span>`;
- if(status)att.status=status;
- const s=$('#att-status');
- s.className='att-status '+(att.status==='queued'?'queued':att.dirty?'dirty':'');
- s.textContent=att.status==='queued'?'未送出：已暫存在這部手機，恢復網絡後會自動送出。':att.dirty?'有未儲存的變更。':att.status==='saved'?(att.savedAt?`已儲存（${att.savedAt}）`:'已儲存。修改後再按「儲存點名」。'):'未點名。';
+ $('#att-unrecorded').hidden=!!d.meeting;
+ document.querySelectorAll('.att-row').forEach(row=>row.querySelectorAll('[data-mark]').forEach(b=>b.setAttribute('aria-pressed',cur.marks[row.dataset.member]===b.dataset.mark)));
+ document.querySelectorAll('[data-count]').forEach(i=>{if(document.activeElement!==i)i.value=cur[i.dataset.count]??''});
+ const shown=fellowship&&!countMode?d.members.filter(x=>x.status==='active'||cur.marks[x.id]):[];
+ const n=s=>shown.filter(x=>cur.marks[x.id]===s).length,unmarked=shown.filter(x=>!cur.marks[x.id]).length;
+ const totalCount=cancelled?null:!fellowship?cur.headcount:(countMode?(cur.member_count||0):n('present'))+(cur.new_friends||0)+(cur.other_guests||0);
+ $('#att-sum').innerHTML=cancelled?'今次取消':fellowship&&!countMode?`出席 <b>${n('present')}</b>・請假 <b>${n('leave')}</b>・缺席 <b>${n('absent')}</b>${unmarked?`・<span class="att-unmarked">未點 <b>${unmarked}</b></span>`:''}<span class="att-total">總人數 <b>${totalCount}</b></span>`:`<span class="att-total">總人數 <b>${totalCount??'—'}</b></span>`;
+ attStatusLine();
+}
+function attStatusLine(){
+ const s=$('#att-status');if(!s||!att.base)return;
+ const mk=meetingKey(att.base),mine=[...att.states].filter(([k])=>k.slice(2).startsWith(mk+'|')||k===`f|${mk}`).map(([,v])=>v.state);
+ const queued=attQueue().filter(x=>meetingKey(x.body)===mk).length,count=st=>mine.filter(x=>x===st).length;
+ const m=att.roll.meeting,last=m?.updated_role?`最後修改：${esc(m.updated_role)}・${hhmm(m.updated_at)}`:'';
+ s.className='att-status'+(count('failed')?' dirty':queued?' queued':'');
+ s.innerHTML=count('failed')?`有 ${count('failed')} 項未能儲存（紅色標示），請再按一次。`:queued?`${queued} 項未送出：已暫存在這部手機，恢復網絡後會自動送出。`:count('saving')?'正在儲存…':m?`每按一次即儲存。${last?`<span class="att-last">${last}</span>`:''}`:'未點名。每按一次即儲存。';
 }
 function bindRoll(view){
- const dr=att.draft,change=()=>{att.dirty=true;updateRoll()};
- view.querySelector('#att-date')?.addEventListener('change',e=>{if(att.dirty&&!confirm('有未儲存的變更，仍要轉到另一次聚會？')){e.target.value=att.roll.scheduled_date;return}const group=att.me.role.role==='group'?'':att.roll.group.id;go(e.target.value==='extra'?attUrl({group,ref:crypto.randomUUID()}):attUrl({group,date:e.target.value}))});
+ const cur=att.cur,base=att.base;
+ const sendFields=fields=>{Object.assign(cur,fields);attPaint();attSave('meeting',{...base,...fields})};
+ view.querySelector('#att-date')?.addEventListener('change',e=>{const group=att.me.role.role==='group'?'':att.roll.group.id;go(e.target.value==='extra'?attUrl({group,ref:crypto.randomUUID()}):attUrl({group,date:e.target.value}))});
  view.querySelectorAll('[data-state]').forEach(b=>b.addEventListener('click',()=>{
-  const v=b.dataset.state;dr.state=v==='cancelled'?'cancelled':'held';
-  if(v==='held'){att.moved=false;if(dr.kind==='regular')dr.actual_date=dr.scheduled_date}
-  if(v==='moved'){att.moved=true;if(dr.actual_date===dr.scheduled_date)dr.actual_date='';setTimeout(()=>$('#att-actual').focus(),0)}
-  if(v==='cancelled'&&dr.kind==='regular'){att.moved=false;dr.actual_date=dr.scheduled_date}
-  change();
+  const v=b.dataset.state;att.forceMoved=false;
+  if(v==='held'&&(cur.state!=='held'||attMoved()))sendFields({state:'held',actual_date:base.kind==='regular'?base.scheduled_date:cur.actual_date});
+  if(v==='moved'){att.forceMoved=true;attPaint();setTimeout(()=>$('#att-actual').focus(),0)}
+  if(v==='cancelled'&&cur.state!=='cancelled')sendFields(base.kind==='regular'?{state:'cancelled',actual_date:base.scheduled_date}:{state:'cancelled'});
  }));
- view.querySelector('#att-actual').addEventListener('change',e=>{dr.actual_date=e.target.value;change()});
+ view.querySelectorAll('[data-day]').forEach(b=>b.addEventListener('click',()=>{if(cur.actual_date===b.dataset.day)return;if(!att.roll.meeting){cur.actual_date=b.dataset.day;attPaint();return}sendFields({state:'held',actual_date:b.dataset.day})}));
+ view.querySelector('#att-actual').addEventListener('change',e=>{const v=e.target.value;if(!v)return;if(v>att.roll.today){toast(attErr('future_date'));e.target.value=cur.actual_date;return}att.forceMoved=false;sendFields({state:'held',actual_date:v})});
  view.querySelectorAll('.att-row').forEach(row=>row.querySelectorAll('[data-mark]').forEach(b=>b.addEventListener('click',()=>{
-  const id=row.dataset.member;if(dr.marks[id]===b.dataset.mark)delete dr.marks[id];else dr.marks[id]=b.dataset.mark;change();
+  const id=row.dataset.member,status=cur.marks[id]===b.dataset.mark?null:b.dataset.mark;
+  if(status)cur.marks[id]=status;else delete cur.marks[id];attPaint();
+  attSave('mark',{...base,actual_date:cur.actual_date,member:Number(id),status});
  })));
- view.querySelectorAll('[data-step]').forEach(b=>b.addEventListener('click',()=>{const k=b.dataset.step,max=k==='headcount'?9999:999;dr[k]=Math.min(max,Math.max(0,(Number(dr[k])||0)+Number(b.dataset.d)));change()}));
- view.querySelectorAll('[data-count]').forEach(i=>i.addEventListener('input',()=>{const v=i.value===''?(i.dataset.count==='headcount'?null:0):Math.max(0,Math.floor(Number(i.value)||0));dr[i.dataset.count]=v;change()}));
+ // Counters wait 0.6 s after the last tap, then save that one number.
+ const later=field=>{clearTimeout(att.timers[field]);att.timers[field]=setTimeout(()=>{delete att.timers[field];attSave('meeting',{...base,...(att.roll.meeting?{}:{actual_date:cur.actual_date}),[field]:cur[field]})},600)};
+ view.querySelectorAll('[data-step]').forEach(b=>b.addEventListener('click',()=>{const k=b.dataset.step,max=k==='headcount'?9999:999;cur[k]=Math.min(max,Math.max(0,(Number(cur[k])||0)+Number(b.dataset.d)));attPaint();later(k)}));
+ view.querySelectorAll('[data-count]').forEach(i=>i.addEventListener('input',()=>{const k=i.dataset.count,v=i.value===''?((k==='headcount'||k==='member_count')?null:0):Math.min(k==='headcount'?9999:999,Math.max(0,Math.floor(Number(i.value)||0)));cur[k]=v;attPaint();later(k)}));
  const form=view.querySelector('#att-friend-form');
  if(form){
   view.querySelector('#att-friend-open').addEventListener('click',e=>{e.currentTarget.hidden=true;form.hidden=false;$('#att-friend-name').focus()});
@@ -225,42 +305,23 @@ function bindRoll(view){
    if(!name){error.textContent=attErr('invalid_name');return}
    try{const r=await attFetch('members',{method:'POST',body:{group:att.roll.group.id,name}});
     if(!r.ok){error.textContent=attErr(r.data.error);return}
-    att.roll.members.push(r.data.member);dr.marks[r.data.member.id]='present';const fewer=dr.new_friends>0;if(fewer)dr.new_friends--;att.dirty=true;
-    renderRoll($('#att-view'));toast(`已把「${r.data.member.name}」加入名單並記為出席${fewer?'；新朋友人數減 1':''}。記得儲存點名。`);
+    att.roll.members.push(r.data.member);cur.marks[r.data.member.id]='present';const fewer=cur.new_friends>0;
+    renderRoll($('#att-view'));
+    attSave('mark',{...base,actual_date:cur.actual_date,member:r.data.member.id,status:'present'});
+    if(fewer){cur.new_friends--;attPaint();attSave('meeting',{...base,new_friends:cur.new_friends})}
+    toast(`已把「${r.data.member.name}」加入名單並記為出席${fewer?'；新朋友人數減 1':''}。`);
    }catch(err){if(!(err instanceof AttStop))error.textContent='要連接網絡才可以加入名單。'}
   });
  }
- view.querySelector('#att-save').addEventListener('click',attSave);
-}
-async function attSave(){
- const d=att.roll,dr=att.draft,fellowship=d.group.kind==='fellowship',s=$('#att-status'),button=$('#att-save');
- const say=t=>{s.className='att-status dirty';s.textContent=t};
- if(dr.state==='held'&&att.moved&&(!dr.actual_date||dr.actual_date===dr.scheduled_date)){say('請選擇改期後的日期。');$('#att-actual').focus();return}
- if(!dr.actual_date){say('請選擇聚會日期。');$('#att-actual').focus();return}
- if(dr.state==='held'&&dr.actual_date>d.today){say(attErr('future_date'));return}
- if(!fellowship&&dr.state==='held'&&!Number.isInteger(dr.headcount)){say('請填總人數。');$('#att-headcount').focus();return}
- if(fellowship&&dr.state==='held'){const left=d.members.filter(x=>x.status==='active'&&!dr.marks[x.id]);if(left.length&&!confirm(`還有 ${left.length} 位未點：${left.slice(0,6).map(x=>x.name).join('、')}${left.length>6?'……':''}。仍要儲存嗎？（未點的人不會算作缺席）`))return}
- const body={group:dr.group,kind:dr.kind,scheduled_date:dr.scheduled_date,ref:dr.ref,id:dr.id,state:dr.state,actual_date:dr.actual_date,new_friends:fellowship?dr.new_friends||0:0,other_guests:fellowship?dr.other_guests||0:0,headcount:fellowship?null:dr.headcount,marks:dr.state==='held'&&fellowship?dr.marks:{}};
- button.disabled=true;s.className='att-status';s.textContent='正在儲存…';
- const keep=t=>{if(attEnqueue(body)){att.dirty=false;updateRoll('queued');toast(t)}else say('未能暫存在這部手機，請保持這個畫面，稍後再按儲存。');attBanner()};
- try{
-  let r;try{r=await fetch(ATT_API+'meeting',{method:'PUT',cache:'no-store',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})}catch{keep('網絡未連接，點名已暫存在這部手機');return}
-  const data=await r.json().catch(()=>({}));
-  if(r.ok){attDequeue(qKey(body));attBanner();att.roll=data;att.dirty=false;att.savedAt=hhmm();att.draft={...dr,id:data.meeting?.id&&!data.meeting.ref&&dr.kind==='extra'?data.meeting.id:dr.id,marks:{...data.marks}};renderRoll($('#att-view'),'saved');toast('點名已儲存');return}
-  if(r.status===401){attEnqueue(body);location.replace('/login/?next='+encodeURIComponent(location.pathname));return}
-  if(data.error==='unlock_required'){keep('點名碼已更改，這次點名已暫存；請重新輸入點名碼。');setTimeout(route,1200);return}
-  if(r.status>=500||r.status===429){keep('伺服器暫時未能儲存，點名已暫存，稍後會再試');return}
-  say(attErr(data.error));
- }finally{button.disabled=false}
 }
 
 async function attHistory(view,sequence){
  const gid=attGroupId(),r=await attFetch('history?group='+encodeURIComponent(gid));
  if(sequence!==routeSequence)return;
  if(!r.ok){view.innerHTML=attGroupPicker(gid)+attProblem(r.data.error);bindGroupPicker(view);return}
- const g=r.data.group,queued=new Set(attQueue().map(x=>x.key)),own=att.me.role.role==='group';
+ const g=r.data.group,queued=new Set(attQueue().map(x=>meetingKey(x.body))),own=att.me.role.role==='group';
  const link=it=>it.kind==='regular'?attUrl({group:own?'':g.id,date:it.scheduled_date}):attUrl({group:own?'':g.id,...(it.ref?{ref:it.ref}:{id:it.id})});
- const label=it=>it.state==='missing'?'未點名':it.state==='cancelled'?'取消':it.kind==='extra'?'額外聚會':it.actual_date!==it.scheduled_date?`改期（原定 ${fmtDate(it.scheduled_date)}）`:'已點名';
+ const label=it=>it.state==='missing'?'未點名':it.state==='cancelled'?'取消':it.kind==='extra'?'額外聚會':it.moved?`改期（原定 ${fmtDate(it.scheduled_date)}）`:it.actual_date!==it.scheduled_date?`已點名（週${dayOf(it.actual_date)}）`:'已點名';
  view.innerHTML=attGroupPicker(gid)+`<section class="panel" aria-labelledby="att-history-title"><div class="att-panel-head"><h2 class="att-h2" id="att-history-title">${esc(g.name)}・過去聚會</h2><a class="att-btn" href="${attUrl({group:own?'':g.id,ref:crypto.randomUUID()})}">＋ 額外聚會</a></div>
  <p class="att-help">按一次聚會即可修改點名、改期或取消。</p>
  ${r.data.items.length?`<ul class="att-history">${r.data.items.map(it=>{const k=`${g.id}|${it.kind==='regular'?it.scheduled_date:(it.ref||it.id)}`;return `<li><a href="${link(it)}"><span class="att-h-date">${fmtDate(it.actual_date,true)}</span><span class="att-h-state ${it.state}">${label(it)}${queued.has(k)?'<em class="att-tag warn">未送出</em>':''}</span><span class="att-h-total">${it.total==null?'—':it.total+' 人'}</span></a></li>`}).join('')}</ul>`:'<p class="att-empty">未有聚會紀錄。</p>'}</section>`;
@@ -274,7 +335,7 @@ async function attRoster(view,sequence){
  const g=r.data.group,active=r.data.members.filter(m=>m.status==='active'),left=r.data.members.filter(m=>m.status==='left');
  const row=m=>`<li data-id="${m.id}"><span class="att-name">${esc(m.name)}</span><span class="att-actions">${m.status==='active'?`<button type="button" class="att-btn" data-rename="${m.id}">改稱呼</button><button type="button" class="att-btn" data-status-to="left">已離團</button>`:'<button type="button" class="att-btn" data-status-to="active">重新加入</button>'}</span></li>`;
  view.innerHTML=attGroupPicker(gid,['fellowship'])+`<section class="panel" aria-labelledby="att-roster-title"><h2 class="att-h2" id="att-roster-title">${esc(g.name)}・名單</h2>
- <p class="att-help">只存團內常用的稱呼，不存全名、電話或生日。團友離團請按「已離團」，舊紀錄會保留。</p>
+ <p class="att-help">只存團內常用的稱呼，不存全名、電話或生日。團友離團請按「已離團」，舊紀錄會保留。持點名連結的團友都可以修改名單，每次修改都會記下「${esc(g.name)}連結」。</p>
  <form id="att-member-form" class="att-inline-form" novalidate><div class="field"><input id="att-member-name" maxlength="20" autocomplete="off" placeholder=" " required><label for="att-member-name">團友稱呼</label></div><button class="att-btn primary" type="submit">加入名單</button><p class="error" id="att-member-error" role="alert"></p></form>
  <h3 class="att-h3">現有團友（${active.length}）</h3>${active.length?`<ul class="att-members">${active.map(row).join('')}</ul>`:'<p class="att-empty">名單未有團友。</p>'}
  ${left.length?`<h3 class="att-h3">已離團（${left.length}）</h3><ul class="att-members left">${left.map(row).join('')}</ul>`:''}</section>`;
@@ -292,7 +353,6 @@ async function attRoster(view,sequence){
   li.querySelector('form').addEventListener('submit',async e=>{e.preventDefault();const m=await send('PATCH',{id:Number(li.dataset.id),name:input.value.trim()});if(m)toast(`已改為「${m.name}」`)});
  }));
 }
-
 const prevMonth=d=>{const y=+d.slice(0,4),m=+d.slice(5,7);return m===1?`${y-1}-12`:`${y}-${String(m-1).padStart(2,'0')}`}; // 月訊 reports last month
 async function attReport(view,sequence){
  const p=attParams(),month=/^\d{4}-\d{2}$/.test(p.get('month')||'')?p.get('month'):prevMonth(att.me.today);
@@ -335,37 +395,72 @@ async function attStats(view,sequence){
  $('#att-year').addEventListener('change',e=>go(attUrl({tab:'stats',group:att.me.role.role==='group'?'':s.group.id,year:e.target.value})));
 }
 
-function attCodes(view){
- const admin=att.me.role.role==='admin',list=[...(admin?[{id:'staff',name:'傳道同工（同工碼）',hasCode:att.me.staffHasCode}]:[]),...attGroups(['fellowship'])];
- view.innerHTML=`<section class="panel" aria-labelledby="att-codes-title"><h2 class="att-h2" id="att-codes-title">點名碼</h2>
- <p class="att-help">重設後舊碼即時失效，已記住舊碼的手機要重新輸入。新碼只顯示一次，請直接交給團職員。${admin?'':'同工碼由網站管理員設定。'}</p>
- <ul class="att-codes">${list.map(x=>`<li data-target="${x.id}"><div class="att-code-line"><span class="att-name">${esc(x.name)}</span><span class="att-code-state${x.hasCode?' ok':''}">${x.hasCode?'已設定':'未設定'}</span><button type="button" class="att-btn" data-code-open>${x.hasCode?'重設點名碼':'設定點名碼'}</button></div></li>`).join('')}</ul></section>`;
- view.querySelectorAll('[data-code-open]').forEach(b=>b.addEventListener('click',()=>{
-  view.querySelectorAll('.att-code-form').forEach(f=>f.remove());
-  const li=b.closest('li'),target=li.dataset.target,item=list.find(x=>x.id===target);
-  li.insertAdjacentHTML('beforeend',`<form class="att-code-form" novalidate><div class="field"><input id="att-new-code" maxlength="40" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder=" "><label for="att-new-code">自訂新碼（可留空）</label></div><p class="att-help">留空會自動產生 10 位隨機碼。自訂碼要有 8 至 32 個英文字母或數字。</p><div class="att-actions"><button class="att-btn primary" type="submit">${item.hasCode?'確定重設':'確定設定'}</button><button class="att-btn" type="button" data-cancel>取消</button></div><p class="error" role="alert"></p><div class="att-code-result" hidden></div></form>`);
-  const form=li.querySelector('.att-code-form');form.querySelector('input').focus();
-  form.querySelector('[data-cancel]').addEventListener('click',()=>form.remove());
-  form.addEventListener('submit',async e=>{
-   e.preventDefault();const code=form.querySelector('input').value.trim(),error=form.querySelector('.error');
-   if(item.hasCode&&!confirm(`重設「${item.name}」的點名碼？舊碼會即時失效。`))return;
-   try{const r=await attFetch('code',{method:'POST',body:{target,code}});
-    if(!r.ok){error.textContent=attErr(r.data.error);return}
-    item.hasCode=true;if(target==='staff')att.me.staffHasCode=true;else{const g=att.me.groups.find(x=>x.id===target);if(g)g.hasCode=true}
-    li.querySelector('.att-code-state').textContent='已設定';li.querySelector('.att-code-state').classList.add('ok');li.querySelector('[data-code-open]').textContent='重設點名碼';
-    form.innerHTML=`<div class="att-code-result" role="status"><p>${esc(item.name)}的新點名碼：</p><p class="att-code-value" id="att-code-value">${esc(r.data.code)}</p><div class="att-actions"><button type="button" class="att-btn" data-copy-code>複製</button><button type="button" class="att-btn" data-done>完成</button></div><p class="att-help">這個碼只顯示一次。舊碼已失效。</p></div>`;
-    form.querySelector('[data-copy-code]').addEventListener('click',async()=>{try{await navigator.clipboard.writeText(r.data.code);toast('已複製點名碼')}catch{toast('未能複製，請手動抄下')}});
-    form.querySelector('[data-done]').addEventListener('click',()=>form.remove());
-   }catch(err){if(!(err instanceof AttStop))error.textContent='網絡未連接，請稍後再試。'}
-  });
+// ----- 同工: links and settings -----
+const attLinkUrl=token=>`${location.origin}/attendance/#${token}`;
+function attOnce(box,label,value,{copyLabel,copied,share}){
+ box.innerHTML=`<div class="att-code-result att-link-result" role="status"><p>${label}</p><input class="att-link-value" id="att-once-value" readonly value="${esc(value)}" aria-label="${esc(label)}"><div class="att-actions"><button type="button" class="att-btn primary" data-copy>${copyLabel}</button>${share&&navigator.share?'<button type="button" class="att-btn" data-share>分享…</button>':''}<button type="button" class="att-btn" data-done>完成</button></div><p class="att-help">只會顯示這一次。</p></div>`;
+ const input=box.querySelector('input');input.addEventListener('focus',()=>input.select());
+ box.querySelector('[data-copy]').addEventListener('click',async()=>{try{await navigator.clipboard.writeText(value);toast(copied)}catch{input.focus();input.select();toast('未能自動複製，請長按選取後複製')}});
+ box.querySelector('[data-share]')?.addEventListener('click',async()=>{try{await navigator.share(share)}catch{}});
+ box.querySelector('[data-done]').addEventListener('click',()=>box.remove());
+}
+function attLinks(view){
+ const list=attGroups(['fellowship']);
+ view.innerHTML=`<section class="panel" aria-labelledby="att-links-title"><h2 class="att-h2" id="att-links-title">點名連結</h2>
+ <p class="att-help">每個團契有一條點名連結，請發到該團的群組。團友在手機按一次連結，就可以為該團點名、改期、取消、修改名單及查看該團的月訊行和統計，不用肢體專區密碼；手機會記住 90 日。連結不會自動過期。每次經連結的修改都會記下「團名連結」。</p>
+ <p class="att-help"><b>重設</b>後，舊連結及所有記住舊連結的手機即時失效，要把新連結再發到團契群組。新連結只顯示一次；如遺失，請重設。</p>
+ <ul class="att-codes">${list.map(g=>`<li data-target="${g.id}"><div class="att-code-line"><span class="att-name">${esc(g.name)}</span><span class="att-code-state${g.hasLink?' ok':''}">${g.hasLink?'已有連結':'未有連結'}</span><button type="button" class="att-btn" data-link-reset>${g.hasLink?'重設連結':'建立連結'}</button></div></li>`).join('')}</ul></section>`;
+ view.querySelectorAll('[data-link-reset]').forEach(b=>b.addEventListener('click',async()=>{
+  const li=b.closest('li'),g=list.find(x=>x.id===li.dataset.target);
+  if(g.hasLink&&!confirm(`重設「${g.name}」的點名連結？舊連結及記住舊連結的手機會即時失效，要把新連結再發到團契群組。`))return;
+  view.querySelectorAll('.att-link-result').forEach(x=>x.parentElement.remove());
+  b.disabled=true;
+  try{const r=await attFetch('links',{method:'POST',body:{group:g.id}});
+   if(!r.ok){toast(attErr(r.data.error));return}
+   g.hasLink=true;li.querySelector('.att-code-state').textContent='已有連結';li.querySelector('.att-code-state').classList.add('ok');b.textContent='重設連結';
+   const box=document.createElement('div');li.append(box);
+   attOnce(box,`${g.name}的點名連結：`,attLinkUrl(r.data.token),{copyLabel:'複製連結',copied:'已複製點名連結',share:{title:`${g.name}點名`,text:`${g.name}點名連結（只供團友使用，請勿轉發到團外）`,url:attLinkUrl(r.data.token)}});
+  }catch(err){if(!(err instanceof AttStop))toast('網絡未連接，請稍後再試。')}
+  finally{b.disabled=false}
  }));
 }
 function attSettings(view){
- view.innerHTML=`<section class="panel" aria-labelledby="att-settings-title"><h2 class="att-h2" id="att-settings-title">設定</h2><dl class="att-settings">
+ const admin=att.me.role.role==='admin',fs=attGroups(['fellowship']),has=att.me.staffHasPassword;
+ view.innerHTML=`<section class="panel" aria-labelledby="att-settings-title"><h2 class="att-h2" id="att-settings-title">設定</h2>
+ ${admin?`<h3 class="att-h3">同工密碼</h3><p class="att-help">全體傳道同工共用一個同工密碼。在肢體專區登入框輸入，即以同工身分登入，手機會記住 90 日。更改後，所有用舊密碼登入的手機會即時登出。</p>
+ <ul class="att-codes" id="att-staffpw"><li><div class="att-code-line"><span class="att-name">同工密碼</span><span class="att-code-state${has?' ok':''}">${has?'已設定':'未設定'}</span><button type="button" class="att-btn" id="att-staffpw-open">${has?'更改同工密碼':'設定同工密碼'}</button></div></li></ul>`:''}
+ <h3 class="att-h3">點名方式</h3><p class="att-help">「只記人數」只填團友、新朋友及其他來賓的人數，不逐一點名；名單會保留，不會刪除。教會議定前，全部團契維持「記名」。</p>
+ <ul class="att-codes att-modes">${fs.map(g=>`<li data-group="${g.id}"><div class="att-code-line"><span class="att-name">${esc(g.name)}</span><div class="status-select" role="group" aria-label="${esc(g.name)} 點名方式"><button type="button" data-mode="names" aria-pressed="${g.record_mode!=='count'}">記名</button><button type="button" data-mode="count" aria-pressed="${g.record_mode==='count'}">只記人數</button></div></div></li>`).join('')}</ul>
+ <dl class="att-settings">
  <div><dt>Google 試算表</dt><dd><b>${att.me.sheetsExport?'已連接':'未連接'}</b><small>待教會的 Google 帳戶；之後可把月訊表匯出到教會 Google Drive 的試算表。</small></dd></div>
- <div><dt>這部裝置</dt><dd>點名身分：${esc(att.me.role.name)}，會記住 90 日。<button type="button" class="att-btn" id="att-lock-2">鎖上點名</button></dd></div>
- <div><dt>資料</dt><dd>點名紀錄存在網站的 Cloudflare D1 資料庫，不設自動刪除。名單只存團內稱呼。</dd></div></dl></section>`;
- $('#att-lock-2').addEventListener('click',attLock);
+ <div><dt>這部裝置</dt><dd>以「${esc(att.me.role.name)}」身分登入，會記住 90 日。要登出請按頁頂「登出」。</dd></div>
+ <div><dt>資料</dt><dd>點名紀錄存在網站的 Cloudflare D1 資料庫，不設自動刪除。名單只存團內稱呼；每次修改都記下由誰（例如「保羅團連結」）及時間。</dd></div></dl></section>`;
+ view.querySelectorAll('.att-modes [data-mode]').forEach(b=>b.addEventListener('click',async()=>{
+  const li=b.closest('li'),g=fs.find(x=>x.id===li.dataset.group),mode=b.dataset.mode;
+  if(g.record_mode===mode)return;
+  if(mode==='count'&&!confirm(`把「${g.name}」改為只記人數？名單會保留，之後可以改回記名。`))return;
+  try{const r=await attFetch('group',{method:'PATCH',body:{group:g.id,record_mode:mode}});
+   if(!r.ok){toast(attErr(r.data.error));return}
+   g.record_mode=mode;li.querySelectorAll('[data-mode]').forEach(x=>x.setAttribute('aria-pressed',x.dataset.mode===mode));toast(`「${g.name}」改為${mode==='count'?'只記人數':'記名'}`);
+  }catch(err){if(!(err instanceof AttStop))toast('網絡未連接，請稍後再試。')}
+ }));
+ $('#att-staffpw-open')?.addEventListener('click',()=>{
+  const li=$('#att-staffpw li');li.querySelector('.att-code-form')?.remove();
+  li.insertAdjacentHTML('beforeend',`<form class="att-code-form" novalidate><div class="field"><input id="att-new-staffpw" maxlength="40" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder=" "><label for="att-new-staffpw">自訂同工密碼（可留空）</label></div><p class="att-help">留空會自動產生 10 位隨機密碼。自訂密碼要有 8 至 32 個英文字母或數字，不分大小楷。</p><div class="att-actions"><button class="att-btn primary" type="submit">${att.me.staffHasPassword?'確定更改':'確定設定'}</button><button class="att-btn" type="button" data-cancel>取消</button></div><p class="error" role="alert"></p></form>`);
+  const form=li.querySelector('.att-code-form');form.querySelector('input').focus();
+  form.querySelector('[data-cancel]').addEventListener('click',()=>form.remove());
+  form.addEventListener('submit',async e=>{
+   e.preventDefault();const password=form.querySelector('input').value.trim(),error=form.querySelector('.error');
+   if(att.me.staffHasPassword&&!confirm('更改同工密碼？所有用舊密碼登入的手機會即時登出。'))return;
+   try{const r=await attFetch('staff-password',{method:'POST',body:{password}});
+    if(!r.ok){error.textContent=attErr(r.data.error);return}
+    att.me.staffHasPassword=true;li.querySelector('.att-code-state').textContent='已設定';li.querySelector('.att-code-state').classList.add('ok');$('#att-staffpw-open').textContent='更改同工密碼';
+    const box=document.createElement('div');form.replaceWith(box);
+    attOnce(box,'新的同工密碼：',r.data.password,{copyLabel:'複製密碼',copied:'已複製同工密碼'});
+    box.querySelector('.att-link-value').classList.add('att-code-value');
+   }catch(err){if(!(err instanceof AttStop))error.textContent='網絡未連接，請稍後再試。'}
+  });
+ });
 }
 function songScreen(){return workShell('songs',title('詩歌庫','搜尋、選曲，再準備聚會的投影片。',`<button class="button primary" id="songs-to-ppt">製作簡報 <span id="song-count">${chosenSongs.size}</span> →</button>`)+`<div class="skeleton-note">以下為原創排版示範，並非教會曲庫；真實歌詞及樂譜待授權後加入。</div><div class="toolbar">${memberSearch('song-search','搜尋詩歌','輸入歌名或類別','清除詩歌搜尋')}</div><div class="filter-tabs" aria-label="詩歌分類">${['全部','敬拜','感恩','差遣'].map(t=>`<button class="${songCategory===t?'active':''}" data-category="${t}">${t}</button>`).join('')}</div><div class="song-list" id="songs-list"></div>`)}
 function renderSongs(){let q=($('#song-search')?.value||'').trim();let visible=songs.filter(x=>(songCategory==='全部'||songCategory===x.category)&&(!q||[x.title,x.category].join('').includes(q)));$('#songs-list').innerHTML=visible.map((x,i)=>`<article class="song-row"><label class="check"><input type="checkbox" data-song="${x.id}" aria-label="選取${x.title}" ${chosenSongs.has(x.id)?'checked':''}><span class="checkmark" aria-hidden="true"></span></label><div class="song-text"><h3>${x.title}</h3><p>${x.category} · ${x.note}</p></div><button class="button small" data-edit-song="${x.id}">預覽歌詞 ↗</button></article>`).join('')||'<div class="empty">沒有符合的詩歌，請換個關鍵字。</div>';$('#song-count').textContent=chosenSongs.size;$('#songs-to-ppt').disabled=!chosenSongs.size}
@@ -407,7 +502,8 @@ async function loadResources(sequence){
  }
 }
 let routeSequence=0;
-async function route(){const sequence=++routeSequence;try{const response=await fetch('/api/session',{cache:'no-store'});const session=await response.json();if(sequence!==routeSequence)return;if(!response.ok||!session.authenticated){location.replace('/login/?next='+encodeURIComponent(location.pathname));return}}catch{$('#app').innerHTML='<div class="workspace member-error"><h1>暫時無法確認登入狀態</h1><p>請檢查網絡後重新整理。</p><a class="link" href="/">返回主頁</a></div>';return}clearTimeout(toastTimer);$('#toast').classList.remove('visible');const path=location.pathname;let view=path.split('/')[2]||'home';$('#app').innerHTML=({home:dashboard,attendance,songs:songScreen,rooms,ppt:pptScreen,resources}[view]||dashboard)();document.title=`${view==='home'?'肢體專區':(navItems.find(x=>x[0]===view)?.[1]||'肢體專區')+'・肢體專區'}・信望愛福音會筲箕灣堂`;bind();if(view==='resources')loadResources(sequence);if(view==='attendance')loadAttendance(sequence);if(view==='songs')renderSongs();if(view==='ppt')renderSlide();window.scrollTo({top:0,behavior:'instant'})}
+// A phone that holds only a fellowship's roll-call link (no member login) gets the roll call alone.
+async function route(){const sequence=++routeSequence;try{const response=await fetch('/api/session',{cache:'no-store'});const session=await response.json();if(sequence!==routeSequence)return;att.linkOnly=false;if(!response.ok||!session.authenticated){if(response.ok&&session.link&&location.pathname==='/members/attendance/')att.linkOnly=true;else{location.replace('/login/?next='+encodeURIComponent(location.pathname));return}}}catch{$('#app').innerHTML='<div class="workspace member-error"><h1>暫時無法確認登入狀態</h1><p>請檢查網絡後重新整理。</p><a class="link" href="/">返回主頁</a></div>';return}clearTimeout(toastTimer);$('#toast').classList.remove('visible');const path=location.pathname;let view=path.split('/')[2]||'home';$('#app').innerHTML=({home:dashboard,attendance,songs:songScreen,rooms,ppt:pptScreen,resources}[view]||dashboard)();document.title=`${view==='home'?'肢體專區':(navItems.find(x=>x[0]===view)?.[1]||'肢體專區')+'・肢體專區'}・信望愛福音會筲箕灣堂`;bind();if(view==='resources')loadResources(sequence);if(view==='attendance')loadAttendance(sequence);if(view==='songs')renderSongs();if(view==='ppt')renderSlide();window.scrollTo({top:0,behavior:'instant'})}
 function bind(){ $('#member-logout')?.addEventListener('click',async e=>{e.currentTarget.disabled=true;try{const r=await fetch('/api/logout',{method:'POST'});if(!r.ok)throw new Error();location.replace('/')}catch{e.currentTarget.disabled=false;toast('登出未完成，請檢查網絡後再試。')}});document.querySelectorAll('[data-enter]').forEach(b=>b.addEventListener('click',enter));$('.mobile-menu')?.addEventListener('click',e=>{const open=$('.site-header nav').classList.toggle('open');e.currentTarget.setAttribute('aria-expanded',open)});$('#reset')?.addEventListener('click',()=>{if(confirm('重設這個瀏覽器中的全部示範預約？')){data.bookings=[];persist();route();toast('示範資料已重設')}});
 bindMemberSearch('song-search',renderSongs);
 

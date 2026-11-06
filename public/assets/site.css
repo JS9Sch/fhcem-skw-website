@@ -539,3 +539,6 @@ html:not(.js) .needs-js{display:none}
   .credits div,.facts.pub div,.church .facts div{grid-template-columns:1fr;gap:2px}
   .steps .step-text{align-self:auto}
 }
+/* 團契點名連結 page */
+.link-open .link-status{font-size:19px;font-weight:700;margin:0 0 10px}
+.link-open .form-note a{color:var(--red);text-decoration:underline;text-underline-offset:3px}

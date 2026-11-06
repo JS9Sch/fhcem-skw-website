@@ -11,13 +11,15 @@
 - 臨時密碼的驗證雜湊與 session 簽署金鑰只存於 Cloudflare Secrets，不在前端或此 repo。
 - `.env`、`.dev.vars`、API 金鑰、登入 cookies、盤點原檔、上傳壓縮檔、私人講道／會友文件及測試證據不納入版本控制。
 - 真正私人資料將來需使用受後端權限保護的儲存空間。`.gitignore` 不能刪除已上傳的秘密，也不能代替資料授權。
-- 目前點名／預約仍是示範資料，只存在當前瀏覽器 localStorage；尚未有真實會友系統或跨裝置同步。
+- 團契點名存於 Cloudflare D1（只存團內稱呼）；房間預約、詩歌庫及簡報仍是示範資料，只存在當前瀏覽器 localStorage。
 
 ## 臨時登入
 
-肢體專區的 HTML 和程式檔由 Worker 驗證 session 後提供。正確密碼換取有效 8 小時的 HttpOnly、Secure、SameSite=Strict cookie。每次登入另有 Durable Object 有效記錄；登出會先持久撤銷該 session，再刪除 cookie，已複製的 cookie 亦隨即失效。其他裝置的獨立登入不受影響；更換密碼雜湊會令既有 session 失效。登入有 Cloudflare 每個位置的速率限制，並非全域精確鎖定。
+肢體專區的 HTML 和程式檔由 Worker 驗證 session 後提供。登入頁只有一個密碼欄：會友密碼換取有效 8 小時的 HttpOnly、Secure、SameSite=Strict cookie；全體傳道同工共用的同工密碼（由網站管理員在點名「設定」設定，PBKDF2 雜湊存於 D1）及網站管理員密碼（Worker secret `ATTENDANCE_ADMIN_CODE_HASH`）換取同類 cookie，但記住 90 日。更改同工密碼會即時登出所有同工；更換管理員雜湊會登出管理員。每次登入另有 Durable Object 有效記錄；登出會先持久撤銷該 session，再刪除 cookie，已複製的 cookie 亦隨即失效。其他裝置的獨立登入不受影響；更換密碼雜湊會令既有 session 失效。登入有 Cloudflare 每個位置的速率限制，並非全域精確鎖定。
 
-示範單位包含「網站管理員」、傳道同工及團契。這些是展示資料分類，尚未代表正式細項權限。密碼只交給獲邀試用的人，不寫進公開 README 或 issue。
+團契點名：每個團契有一條點名連結 `/attendance/#<token>`，由同工建立或重設後發到該團群組。token 只在網址 fragment（不會送到伺服器記錄），頁面讀取後即從網址列移除，經 `POST /api/attendance/link` 換取只限該團的 HttpOnly cookie（90 日）；D1 只存 token 的 SHA-256。持連結即有該團的全部點名功能（點名、改期／取消、名單、該團月訊一行及統計），但不能開啟肢體專區其他內容；每次修改記下「<團名>連結」。重設連結會令舊連結及記住它的手機即時失效。每按一次即儲存一個人的出席狀態或一個人數，幾部手機同時點名不會互相覆蓋。
+
+房間預約的示範單位（「網站管理員」、傳道同工及團契）仍只是展示資料分類。密碼只交給獲邀試用的人，不寫進公開 README 或 issue。
 
 ## 本機開發
 
@@ -52,7 +54,7 @@ python scripts/check-preview.py https://localhost:8787
 
 - `site/`：公開頁面的來源（版面、頁面、內容資料）。`npm run build` 產生 `public/**/index.html` 及 `src/member-index.txt`；產生的檔案一併提交，`npm test` 會檢查是否最新。部署流程不需另加 build 步驟。
 - `public/`：產生的公開頁面、`assets/site.css`／`site.js`、肢體專區樣式 `assets/members.css`、相片及 PDF。這裡的每個檔案皆可公開存取。
-- `src/worker.js`、`src/auth.js`、`src/session-store.js`：Worker 路由、登入與可撤銷 session。`SESSIONS` 綁定 SQLite Durable Objects，每個登入只保存到期時間，登出／到期清除；不存密碼、cookie、會友或點名資料。
+- `src/worker.js`（入口）、`src/router.js`（路由，可在 node:test 測試）、`src/auth.js`、`src/session-store.js`：登入與可撤銷 session。`src/attendance.js`、`src/attendance-core.js`、`src/unit-access.js`：團契點名 API、規則及月訊表、同工／管理員密碼與點名連結 cookie。`SESSIONS` 綁定 SQLite Durable Objects，每個登入只保存到期時間，登出／到期清除；不存密碼、cookie、會友或點名資料。
 - `src/member-app.txt`、`src/member-index.txt`：由 Worker bundle 載入的肢體區程式與頁面，部署端受 session 保護；repo 裡的程式本身不是秘密。
 - `site/data/documents.mjs`：四份原 PDF 的結構化閱讀版（/notices/<slug>/）。`site/data/bus.mjs`：「怎樣來」巴士下車資料（城巴、九巴及運輸署開放數據，2026 年 11 月）。
 - `preview-address/`：Pages 網址透過 Service Binding 呼叫 Worker；不公開帳戶子網域。
@@ -107,6 +109,6 @@ secret 的 JSON 結構為 `sermons: {url, embedUrl, tabs: [{label, url}]}` 及 `
 
 ## 網址
 
-公開：`/`、`/about/`（`faith/`、`history/`、`churches/`）、`/meetings/`、`/activities/`、`/notices/`（`weather/`、`song-copyright/`、`recreation/`、`weddings-funerals/`、`covid-2023/`）、`/contact/`、`/credits/`、`/login/`。不存在的網址顯示 404 頁；舊 Wix 網址不再轉向。
+公開：`/`、`/about/`（`faith/`、`history/`、`churches/`）、`/meetings/`、`/activities/`、`/notices/`（`weather/`、`song-copyright/`、`recreation/`、`weddings-funerals/`、`covid-2023/`）、`/contact/`、`/credits/`、`/login/`、`/attendance/`（打開團契點名連結）。不存在的網址顯示 404 頁；舊 Wix 網址不再轉向。
 
-肢體專區：`/members/`、`/members/resources/`、`/members/attendance/`、`/members/songs/`、`/members/rooms/`、`/members/ppt/`。未登入會 302 到 `/login/?next=…`；`/members/app.js` 未登入回 401。
+肢體專區：`/members/`、`/members/resources/`、`/members/attendance/`、`/members/songs/`、`/members/rooms/`、`/members/ppt/`。未登入會 302 到 `/login/?next=…`；`/members/app.js` 未登入回 401。只持團契點名連結的手機只可開 `/members/attendance/` 及其程式檔。

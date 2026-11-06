@@ -1,13 +1,16 @@
-"""團契點名 end to end against a LOCAL `wrangler dev` with a local D1 database
-(`npx wrangler d1 migrations apply ATT_DB --local`). It writes fake names
-(測試甲…) and sets the 同工碼 and 保羅團 code to throwaway test values, so it
-refuses to run against anything but localhost. Test month: October 2026.
+"""團契點名 end to end against a LOCAL `wrangler dev` with a FRESH local D1 database
+(stop dev, delete .wrangler/state/v3/d1, `npx wrangler d1 migrations apply ATT_DB --local`,
+start dev). It writes fake names (測試甲…), sets a throwaway 同工 password and makes
+roll-call links, so it refuses to run against anything but localhost. Test month: October 2026.
 
 usage: python3 scripts/check-attendance.py https://localhost:8787 [--shots DIR]
-Reads the member password and the local admin code hidden (getpass); neither is printed.
-Covers: unlock, mark, save, offline queue then resume, reload, edit a past meeting,
-reschedule and cancel, the 月訊 table values and CSV, copy, code reset signing an
-old phone out, lock, and at 320/390/1440 no overflow and every target at least 44px.
+Reads the member password and the local admin password hidden (getpass); neither is printed.
+Covers: one login box (member / 同工 / admin), admin sets the 同工 password, 同工 make a
+roll-call link, a phone opens it WITHOUT logging in and sees only that group, per-tap
+saves (two phones at once, offline queue then resume, reload), edit a past meeting,
+reschedule and cancel, 以斯帖團 on Friday, the 月訊 table and CSV, copy, 只記人數 switch,
+link reset signing the old phone out, forget, 同工 password change signing 同工 out,
+and at 320/390/1440 no overflow and every target at least 44px.
 """
 import datetime, getpass, json, re, sys
 from pathlib import Path
@@ -24,7 +27,7 @@ if not LOCAL:
     raise SystemExit('Refusing to write test data outside localhost.')
 password = getpass.getpass('Member password (hidden): ')
 admin_code = getpass.getpass('Local attendance admin code (hidden): ')
-STAFF_CODE, PAUL_CODE = 'STAFF-TEST-01', 'PAUL-TEST-01'
+STAFF_PW, STAFF_PW_2 = 'STAFF-TEST-01', 'STAFF-TEST-02'
 NAMES = ['測試甲', '測試乙', '測試丙', '測試丁', '測試戊']
 LEFT_NAME = '測試己'
 today = (datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(hours=8)).date()
@@ -39,19 +42,21 @@ def fmt(d):
 
 
 checks, errors, dialogs = [], [], []
-SIZE_JS = '''[...document.querySelectorAll('#att-root .att-btn,#att-root .att-tabs a,#att-root [data-mark],#att-root [data-state],#att-root .att-step,#att-root .att-history a,#att-root #att-lock')]
+SIZE_JS = '''[...document.querySelectorAll('#att-root .att-btn,#att-root .att-tabs a,#att-root [data-mark],#att-root [data-state],#att-root [data-day],#att-root [data-mode],#att-root .att-step,#att-root .att-history a,#att-root #att-forget')]
  .filter(e=>e.getClientRects().length&&getComputedStyle(e).visibility!=='hidden'&&!e.closest('[hidden]'))
  .map(e=>{const r=e.getBoundingClientRect();return [e.textContent.trim().slice(0,12),Math.round(r.width),Math.round(r.height)]})
  .filter(([,w,h])=>w<44||h<44)'''
+PUT_MEETING = lambda r: r.url.endswith('/api/attendance/meeting') and r.request.method == 'PUT'
 
 
 def context(browser, w, h, **kw):
     return browser_context(browser, BASE, viewport={'width': w, 'height': h}, locale='zh-HK', **kw)
 
 
-def login(ctx):
-    r = ctx.request.post(BASE + '/api/login', headers={'Origin': BASE}, data={'password': password}, max_redirects=0)
+def login(ctx, pw):
+    r = ctx.request.post(BASE + '/api/login', headers={'Origin': BASE}, data={'password': pw}, max_redirects=0)
     assert r.status == 200, f'login {r.status}'
+    return r.json()['role']
 
 
 def new_page(ctx):
@@ -62,9 +67,8 @@ def new_page(ctx):
 
 
 def shot(page, name):
-    # Full-page pictures: the save bar is drawn where it ends, not stuck to the bottom of the screen.
     SHOTS.mkdir(parents=True, exist_ok=True)
-    page.wait_for_timeout(250)
+    page.wait_for_timeout(300)
     page.screenshot(path=str(SHOTS / name), full_page=True, animations='disabled', style='.att-savebar{position:static!important}#toast{display:none}')
 
 
@@ -80,33 +84,18 @@ def tab(page, name='', **query):
     page.wait_for_selector('#att-view section.panel')
 
 
-def unlock(page, unit, code):
-    page.goto(BASE + '/members/attendance/')
-    expect(page.locator('#att-unlock-form')).to_be_visible()
-    page.select_option('#att-unit', unit); page.fill('#att-code', code); page.click('#att-unlock-submit')
-    expect(page.locator('.att-bar')).to_be_visible()
-
-
-def set_code(page, target, code=''):
-    tab(page, 'codes')
-    li = page.locator(f'.att-codes li[data-target="{target}"]')
-    li.locator('[data-code-open]').click()
-    li.locator('#att-new-code').fill(code)
-    li.locator('.att-code-form button[type=submit]').click()
-    value = li.locator('.att-code-value')
-    expect(value).to_have_text(code if code else re.compile(r'^[A-HJKMNP-Z2-9]{5}-[A-HJKMNP-Z2-9]{5}$'))
-    return value.inner_text()
-
-
 def row(page, name):
     return page.locator('.att-row').filter(has=page.locator('.att-name', has_text=re.compile('^' + name)))
 
 
-def mark(page, name, status):
+def mark(page, name, status, saved=True):
     button = row(page, name).get_by_role('button', name=status, exact=True)
-    if button.get_attribute('aria-pressed') != 'true':  # pressing a chosen mark again clears it
-        button.click()
+    if button.get_attribute('aria-pressed') == 'true':  # pressing a chosen mark again clears it
+        return
+    button.click()
     expect(button).to_have_attribute('aria-pressed', 'true')
+    if saved:
+        expect(row(page, name).locator('.att-mark-state')).to_have_attribute('data-s', 'saved')
 
 
 def marks(page, **by_status):
@@ -115,17 +104,45 @@ def marks(page, **by_status):
             mark(page, name, {'present': '出席', 'leave': '請假', 'absent': '缺席'}[status])
 
 
+def clear_marks(page):
+    for name in NAMES:
+        b = row(page, name).locator('[aria-pressed="true"]')
+        if b.count():
+            b.click(); expect(row(page, name).locator('.att-mark-state')).to_have_attribute('data-s', 'saved')
+
+
+def count(page, field, value):
+    """Type a count; it saves 0.6 s after the last change."""
+    with page.expect_response(PUT_MEETING) as resp:
+        page.fill(f'#att-{field}', str(value))
+    assert resp.value.ok, resp.value.status
+
+
 def counts(page, new_friends, guests):
-    page.fill('#att-new_friends', str(new_friends)); page.fill('#att-other_guests', str(guests))
+    for field, value in (('new_friends', new_friends), ('other_guests', guests)):
+        if page.input_value(f'#att-{field}') != str(value):
+            count(page, field, value)
 
 
-def save(page):
-    page.click('#att-save')
-    expect(page.locator('#att-status')).to_contain_text('已儲存')
+def state(page, value):
+    with page.expect_response(PUT_MEETING) as resp:
+        page.locator(f'[data-state="{value}"]').click()
+    assert resp.value.ok, resp.value.status
 
 
-def total(page):
-    return page.locator('#att-sum .att-total b').inner_text()
+def make_link(page, group):
+    tab(page, 'links')
+    li = page.locator(f'.att-codes li[data-target="{group}"]')
+    li.locator('[data-link-reset]').click()
+    value = li.locator('.att-link-value')
+    expect(value).to_have_value(re.compile(r'^' + re.escape(BASE) + r'/attendance/#[A-Za-z0-9_-]{32}$'))
+    return value.input_value()
+
+
+def open_link(page, url, group_name):
+    page.goto(url)
+    page.wait_for_url(BASE + '/members/attendance/')
+    expect(page.locator('.att-bar b')).to_have_text(group_name)
 
 
 try:
@@ -135,32 +152,60 @@ try:
         assert anon.request.get(BASE + '/api/attendance/me').status == 401
         assert anon.request.put(BASE + '/api/attendance/meeting', data='{}', headers={'Content-Type': 'application/json'}).status == 403
         assert anon.request.fetch(BASE + '/api/attendance/meeting', method='DELETE', headers={'Origin': BASE}).status == 405
-        checks.append('Anonymous API 401; write without Origin 403; wrong method 405')
+        assert anon.request.post(BASE + '/api/attendance/link', headers={'Origin': BASE}, data={'token': 'x' * 32}).status == 401
+        checks.append('Anonymous API 401; write without Origin 403; wrong method 405; wrong link token 401')
 
-        # Admin (desktop) sets the staff code and the 保羅團 code.
-        actx = context(browser, 1440, 1000); login(actx); ap = new_page(actx)
-        unlock(ap, 'admin', admin_code)
-        expect(ap.locator('.att-bar b')).to_have_text('網站管理員')
-        set_code(ap, 'staff', STAFF_CODE); set_code(ap, 'paul', PAUL_CODE)
-        checks.append('Admin unlock; admin sets the staff code and a group code')
+        # Admin (desktop) signs in with the admin password in the ordinary login box.
+        actx = context(browser, 1440, 1000); assert login(actx, admin_code.lower()) == 'admin'; ap = new_page(actx)
+        tab(ap); expect(ap.locator('.att-bar b')).to_have_text('網站管理員')
+        tab(ap, 'settings')
+        ap.click('#att-staffpw-open'); ap.fill('#att-new-staffpw', STAFF_PW); ap.click('#att-staffpw .att-code-form button[type=submit]')
+        expect(ap.locator('#att-staffpw .att-link-value')).to_have_value(STAFF_PW)
+        expect(ap.locator('#att-staffpw .att-code-state')).to_have_text('已設定')
+        shot(ap, 'settings-admin-1440.png')
+        checks.append('Admin signs in through the login box; sets the shared 同工 password (shown once)')
 
-        # 保羅團 leader on a phone.
-        lctx = context(browser, 390, 844); login(lctx); lp = new_page(lctx)
-        lp.goto(BASE + '/members/attendance/'); expect(lp.locator('#att-unlock-form')).to_be_visible()
-        lp.select_option('#att-unit', 'paul'); shot(lp, 'unlock-390.png')
-        lp.fill('#att-code', 'WRONG-CODE-99'); lp.click('#att-unlock-submit')
-        expect(lp.locator('#att-unlock-error')).to_have_text('點名碼不正確。')
-        lp.fill('#att-code', PAUL_CODE.lower()); lp.click('#att-unlock-submit')
-        expect(lp.locator('.att-bar b')).to_have_text('保羅團')
-        role = next(c for c in lctx.cookies() if c['name'] == '__Host-fhcem_att')
-        assert role['httpOnly'] and role['secure'] and role['sameSite'] == 'Strict'
-        days = (role['expires'] - datetime.datetime.now().timestamp()) / 86400
+        # 同工 (desktop) sign in with the 同工 password: 90-day session, all groups, link management.
+        sctx = context(browser, 1440, 1000, accept_downloads=True)
+        sctx.grant_permissions(['clipboard-read', 'clipboard-write'], origin=BASE)
+        assert login(sctx, STAFF_PW.lower().replace('-', ' ')) == 'staff'; sp = new_page(sctx)
+        session = next(c for c in sctx.cookies() if c['name'] == '__Host-fhcem_preview')
+        days = (session['expires'] - datetime.datetime.now().timestamp()) / 86400
         assert 89 < days <= 90, days
-        assert '__Host-fhcem_att' not in lp.evaluate('document.cookie')
-        expect(lp.locator('.att-tabs a')).to_have_text(['點名', '過去聚會', '名單', '月訊表', '統計'])
-        checks.append('Group unlock: wrong code refused; role cookie HttpOnly/Secure/Strict for 90 days; group tabs only')
+        tab(sp); expect(sp.locator('.att-bar b')).to_have_text('傳道同工')
+        expect(sp.locator('.att-tabs a')).to_have_text(['點名', '過去聚會', '名單', '月訊表', '統計', '點名連結', '設定'])
+        link = make_link(sp, 'paul')
+        shot(sp, 'links-1440.png')
+        checks.append('同工 sign in with the 同工 password (case and spaces ignored), kept 90 days; make 保羅團 link (shown once)')
 
-        # Roster: fake names, duplicate refused, rename, leave and rejoin.
+        # A plain member sees how to get in, not a code form.
+        mctx = context(browser, 390, 844); assert login(mctx, password) == 'member'; mp = new_page(mctx)
+        mp.goto(BASE + '/members/attendance/'); expect(mp.locator('#att-nolink')).to_be_visible()
+        member = next(c for c in mctx.cookies() if c['name'] == '__Host-fhcem_preview')
+        assert 0.3 < (member['expires'] - datetime.datetime.now().timestamp()) / 3600 <= 8
+        shot(mp, 'member-nolink-390.png')
+        checks.append('Member password: 8-hour session; attendance explains the group link')
+
+        # 保羅團 phone: no login at all, just the link.
+        lctx = context(browser, 390, 844); lp = new_page(lctx)
+        bad = new_page(lctx); bad.goto(BASE + '/attendance/#' + 'x' * 32)
+        expect(bad.locator('#link-status')).to_have_text('這條點名連結已失效或不完整。'); assert '#' not in bad.url
+        shot(bad, 'link-invalid-390.png'); bad.close()
+        open_link(lp, link, '保羅團')
+        assert link.split('#')[1] not in lp.url
+        cookie = next(c for c in lctx.cookies() if c['name'] == '__Host-fhcem_link')
+        assert cookie['httpOnly'] and cookie['secure'] and cookie['sameSite'] == 'Strict'
+        assert 89 < (cookie['expires'] - datetime.datetime.now().timestamp()) / 86400 <= 90
+        assert not [c for c in lctx.cookies() if c['name'] == '__Host-fhcem_preview']
+        assert '__Host-fhcem_link' not in lp.evaluate('document.cookie')
+        expect(lp.locator('.att-tabs a')).to_have_text(['點名', '過去聚會', '名單', '月訊表', '統計'])
+        expect(lp.locator('.side-nav, #member-logout')).to_have_count(0)
+        assert lctx.request.get(BASE + '/members/', max_redirects=0).status == 302
+        assert lctx.request.get(BASE + '/api/member-resources').status == 401
+        assert lctx.request.get(BASE + '/api/attendance/meeting?group=david').status == 403
+        checks.append('Link opens without login: token only in the fragment and removed; link cookie HttpOnly/Secure/Strict 90 days; group tabs only; other member pages and groups closed')
+
+        # Roster through the link.
         tab(lp, 'roster')
         known = lp.locator('.att-members .att-name').all_inner_texts()
         for name in NAMES + [LEFT_NAME]:
@@ -179,71 +224,78 @@ try:
         if left.count():
             left.locator('[data-status-to="left"]').click()
         expect(lp.locator('.att-members.left .att-name', has_text=LEFT_NAME)).to_have_count(1)
-        lp.locator('.att-members.left li').filter(has_text=LEFT_NAME).locator('[data-status-to="active"]').click()
-        lp.locator('.att-members:not(.left) li').filter(has_text=LEFT_NAME).locator('[data-status-to="left"]').click()
-        expect(lp.locator('.att-members.left .att-name', has_text=LEFT_NAME)).to_have_count(1)
         layout(lp, 'roster 390'); shot(lp, 'roster-390.png')
-        checks.append('Roster: add, duplicate refused, rename, mark left, rejoin')
+        checks.append('Roster through the link: add, duplicate refused, rename, mark left')
 
-        # 今次 roll call: mark, unmarked prompt, save, reload.
+        # 今次 roll call: every tap saves; no save button.
         tab(lp)
         expect(lp.locator('.att-when')).to_contain_text(fmt(current))
-        if current == datetime.date(2026, 10, 31):
-            expect(lp.locator('.att-when .att-tag').first).to_have_text('今次')
-        for name in NAMES:  # start clean on re-runs
-            b = row(lp, name).locator('[aria-pressed="true"]')
-            if b.count(): b.click()
+        expect(lp.locator('#att-save')).to_have_count(0)
+        clear_marks(lp)
         marks(lp, present=['測試甲', '測試乙'], leave=['測試丙'], absent=['測試丁'])
         counts(lp, 0, 0)
-        lp.locator('[data-step="new_friends"][data-d="1"]').click(); lp.locator('[data-step="new_friends"][data-d="1"]').click()
-        lp.locator('[data-step="other_guests"][data-d="1"]').click()
+        with lp.expect_response(PUT_MEETING):
+            lp.locator('[data-step="new_friends"][data-d="1"]').click(); lp.locator('[data-step="new_friends"][data-d="1"]').click()
+        with lp.expect_response(PUT_MEETING):
+            lp.locator('[data-step="other_guests"][data-d="1"]').click()
         expect(lp.locator('#att-sum .att-total b')).to_have_text('5')
         expect(lp.locator('#att-sum')).to_contain_text('未點 1')
+        expect(lp.locator('#att-status')).to_contain_text('最後修改：保羅團連結')
         layout(lp, 'roll 390'); shot(lp, 'roll-390.png')
-        dialogs.clear(); save(lp)
-        assert any('還有 1 位未點' in d for d in dialogs), dialogs
-        mark(lp, '測試戊', '出席'); expect(lp.locator('#att-sum .att-total b')).to_have_text('6')
-        dialogs.clear(); save(lp); assert not dialogs, dialogs
         lp.reload(); lp.wait_for_selector('.att-roll')
-        expect(row(lp, '測試戊').get_by_role('button', name='出席', exact=True)).to_have_attribute('aria-pressed', 'true')
-        expect(lp.locator('#att-sum .att-total b')).to_have_text('6')
-        checks.append('Roll call: three-way marks, ± counters, total, unmarked prompt, save, reload keeps values')
+        expect(row(lp, '測試丙').get_by_role('button', name='請假', exact=True)).to_have_attribute('aria-pressed', 'true')
+        expect(lp.locator('#att-sum .att-total b')).to_have_text('5')
+        checks.append('Roll call: each tap saves (state shown per name), ± counters save on their own, total, reload keeps values, recorded as 保羅團連結')
 
-        # Offline: the save waits in this phone and goes out when the network is back.
-        lp.route('**/api/attendance/meeting', lambda r: r.abort('internetdisconnected') if r.request.method == 'PUT' else r.fallback())
+        # Two phones on the same link mark together; neither overwrites the other.
+        l2 = context(browser, 390, 844); lp2 = new_page(l2); open_link(lp2, link, '保羅團')
+        mark(lp2, '測試戊', '出席')
+        mark(lp, '測試甲', '請假'); mark(lp, '測試甲', '出席')
+        expect(row(lp, '測試戊').get_by_role('button', name='出席', exact=True)).to_have_attribute('aria-pressed', 'true')
+        lp2.reload(); lp2.wait_for_selector('.att-roll')
+        expect(row(lp2, '測試甲').get_by_role('button', name='出席', exact=True)).to_have_attribute('aria-pressed', 'true')
+        expect(lp.locator('#att-sum .att-total b')).to_have_text('6')
+        l2.close()
+        checks.append("Two phones marking the same meeting: each keeps the other's marks (another phone's mark appears with the next reply)")
+
+        # Offline: the tap waits in this phone and goes out when the network is back.
+        lp.route('**/api/attendance/mark', lambda r: r.abort('internetdisconnected'))
         lctx.set_offline(True)
-        mark(lp, '測試戊', '請假'); lp.click('#att-save')
+        mark(lp, '測試戊', '請假', saved=False)
+        expect(row(lp, '測試戊').locator('.att-mark-state')).to_have_attribute('data-s', 'queued')
         expect(lp.locator('#att-status')).to_contain_text('未送出')
         expect(lp.locator('#att-unsent')).to_be_visible(); expect(lp.locator('#att-unsent')).to_contain_text('未送出')
-        queue = lp.evaluate("localStorage.getItem('fhcem-att-queue-v1')")
+        queue = lp.evaluate("localStorage.getItem('fhcem-att-queue-v2')")
         assert queue and all(n not in queue for n in NAMES), 'queue must hold member ids only'
         lp.evaluate('scrollTo(0,0)'); shot(lp, 'unsent-390.png')
-        lp.unroute('**/api/attendance/meeting'); lctx.set_offline(False)
-        expect(lp.locator('#att-unsent')).to_be_hidden(timeout=20000)
-        assert lp.evaluate("localStorage.getItem('fhcem-att-queue-v1')") is None
+        lp.unroute('**/api/attendance/mark'); lctx.set_offline(False)
+        expect(lp.locator('#att-unsent')).to_be_hidden(timeout=25000)
+        assert lp.evaluate("localStorage.getItem('fhcem-att-queue-v2')") is None
         lp.reload(); lp.wait_for_selector('.att-roll')
         expect(row(lp, '測試戊').get_by_role('button', name='請假', exact=True)).to_have_attribute('aria-pressed', 'true')
         expect(lp.locator('#att-sum .att-total b')).to_have_text('5')
-        checks.append('Offline save queued (ids only, "未送出" shown), sent automatically when back online, kept after reload')
+        checks.append('Offline tap queued (ids only, "未送出" on the name and in the banner), sent automatically when back online, kept after reload')
 
         # October 2026: edit a past meeting, reschedule across weeks, cancel.
         def meeting(date):
             tab(lp, date=date); lp.wait_for_selector('.att-roll')
         meeting('2026-10-03')
-        marks(lp, present=['測試甲'], absent=['測試乙', '測試丙', '測試丁', '測試戊']); counts(lp, 1, 0); save(lp)
-        meeting('2026-10-03'); mark(lp, '測試乙', '出席'); expect(lp.locator('#att-sum .att-total b')).to_have_text('3'); save(lp)
+        marks(lp, present=['測試甲'], absent=['測試乙', '測試丙', '測試丁', '測試戊']); counts(lp, 1, 0)
+        meeting('2026-10-03'); mark(lp, '測試乙', '出席'); expect(lp.locator('#att-sum .att-total b')).to_have_text('3')
         meeting('2026-10-10')
-        lp.locator('[data-state="moved"]').click(); lp.fill('#att-actual', '2026-10-15')
-        marks(lp, present=['測試甲'], absent=['測試乙', '測試丙', '測試丁', '測試戊']); counts(lp, 0, 0); save(lp)
+        lp.locator('[data-state="moved"]').click()
+        with lp.expect_response(PUT_MEETING):
+            lp.fill('#att-actual', '2026-10-15'); lp.locator('#att-actual').dispatch_event('change')
+        marks(lp, present=['測試甲'], absent=['測試乙', '測試丙', '測試丁', '測試戊']); counts(lp, 0, 0)
         lp.reload(); lp.wait_for_selector('.att-roll')
         expect(lp.locator('[data-state="moved"]')).to_have_attribute('aria-pressed', 'true')
         expect(lp.locator('#att-actual')).to_have_value('2026-10-15')
         meeting('2026-10-17')
-        marks(lp, present=['測試甲', '測試乙', '測試丙'], absent=['測試丁', '測試戊']); counts(lp, 0, 0); save(lp)
+        marks(lp, present=['測試甲', '測試乙', '測試丙'], absent=['測試丁', '測試戊']); counts(lp, 0, 0)
         tab(lp, 'history'); layout(lp, 'history 390'); shot(lp, 'history-390.png')
         lp.locator('.att-history a', has_text='2026 年 10 月 24 日').click(); lp.wait_for_selector('.att-roll')
         expect(lp.locator('.att-when')).to_contain_text('2026 年 10 月 24 日')
-        lp.locator('[data-state="cancelled"]').click(); expect(lp.locator('#att-cancel-note')).to_be_visible(); save(lp)
+        state(lp, 'cancelled'); expect(lp.locator('#att-cancel-note')).to_be_visible()
         tab(lp, 'history')
         expect(lp.locator('.att-history li', has_text='2026 年 10 月 15 日')).to_contain_text('改期（原定 10 月 10 日（六））')
         expect(lp.locator('.att-history li', has_text='2026 年 10 月 24 日')).to_contain_text('取消')
@@ -256,29 +308,33 @@ try:
         assert cells == expected, cells
         expect(lp.locator('.att-report tbody tr')).to_have_count(1)
         tab(lp, 'stats', year='2026'); layout(lp, 'stats 390'); shot(lp, 'stats-390.png')
-        checks.append(f'Group sees only its own 月訊 row: {cells}; stats page')
+        checks.append(f'Link sees only its own 月訊 row: {cells}; stats page')
 
-        # Staff (desktop): head-count meeting, full 月訊 table, CSV, copy, settings.
-        sctx = context(browser, 1440, 1000, accept_downloads=True)
-        sctx.grant_permissions(['clipboard-read', 'clipboard-write'], origin=BASE)
-        login(sctx); sp = new_page(sctx)
-        unlock(sp, 'staff', STAFF_CODE)
-        expect(sp.locator('.att-tabs a')).to_have_text(['點名', '過去聚會', '名單', '月訊表', '統計', '點名碼', '設定'])
+        # 同工: head-count meeting, 以斯帖團 Friday, full 月訊 table, CSV, copy, settings.
         tab(sp, group='sun-worship', date='2026-10-04')
         expect(sp.locator('.att-row')).to_have_count(0)
-        sp.fill('#att-headcount', '78'); save(sp)
+        count(sp, 'headcount', 78)
+        tab(sp, group='esther', date='2026-10-31')
+        expect(sp.locator('#att-days [data-day]')).to_have_text(['週六（10/31）', '週五（10/30）'])
+        expect(sp.locator('[data-day="2026-10-31"]')).to_have_attribute('aria-pressed', 'true')
+        sp.click('[data-day="2026-10-30"]'); expect(sp.locator('[data-day="2026-10-30"]')).to_have_attribute('aria-pressed', 'true')
+        with sp.expect_response(PUT_MEETING):
+            sp.locator('[data-step="other_guests"][data-d="1"]').click()
+        expect(sp.locator('[data-state="held"]')).to_have_attribute('aria-pressed', 'true')
+        shot(sp, 'esther-friday-1440.png')
+        tab(sp, 'history', group='esther')
+        expect(sp.locator('.att-history li', has_text='2026 年 10 月 30 日')).to_contain_text('已點名（週五）')
         tab(sp, 'report', month='2026-10')
         expect(sp.locator('.att-report tbody tr')).to_have_count(16)
         expect(sp.locator('.att-report tbody th').first).to_have_text('週六崇拜')
         cells = [re.sub(r'\s+', '', t) for t in sp.locator('tr[data-group="paul"] td').all_inner_texts()]
         assert cells == expected, cells
         assert re.sub(r'\s+', '', sp.locator('tr[data-group="sun-worship"] td').first.inner_text()) == '78'
+        assert re.sub(r'\s+', '', sp.locator('tr[data-group="esther"] td').nth(4).inner_text()) == '1'
         layout(sp, 'report 1440'); shot(sp, 'report-1440.png')
-        # The CSV link is fetched with the page's cookies (a browser download through the
-        # same-origin guard route is cancelled by Chromium, so read it as the browser would).
-        link = sp.locator('#att-csv')
-        assert link.get_attribute('download') == '聚會出席人數-2026-10.csv'
-        response = sctx.request.get(BASE + link.get_attribute('href'))
+        link_el = sp.locator('#att-csv')
+        assert link_el.get_attribute('download') == '聚會出席人數-2026-10.csv'
+        response = sctx.request.get(BASE + link_el.get_attribute('href'))
         assert response.status == 200 and 'attachment' in response.headers['content-disposition']
         csv = response.body().decode('utf-8')
         assert csv.startswith('﻿聚會,第一週,第二週,第三週,第四週,第五週\r\n'), csv[:40]
@@ -291,42 +347,62 @@ try:
         layout(sp, 'report 390'); shot(sp, 'report-390.png')
         sp.set_viewport_size({'width': 1440, 'height': 1000})
         tab(sp, 'settings'); expect(sp.locator('.att-settings')).to_contain_text('Google 試算表'); expect(sp.locator('.att-settings')).to_contain_text('未連接')
-        tab(sp, 'codes'); expect(sp.locator('.att-codes li[data-target="staff"]')).to_have_count(0)
-        checks.append('Staff: head-count total, 16-row 月訊 table in 月訊 order, CSV with BOM, copy as table, settings; no staff-code row for staff')
+        expect(sp.locator('#att-staffpw')).to_have_count(0)
+        checks.append('同工: head-count total, 以斯帖團 held on Friday 10-30 (not 改期), 16-row 月訊 table, CSV with BOM, copy as table; 同工 password section admin-only')
 
-        # Code reset: the phone that remembered the old code is signed out at once.
-        new_code = set_code(sp, 'paul'); shot(sp, 'codes-1440.png')
-        assert lctx.request.get(BASE + '/api/attendance/meeting?group=paul').json()['error'] == 'unlock_required'
-        lp.goto(BASE + '/members/attendance/'); expect(lp.locator('#att-unlock-form')).to_be_visible()
-        lp.select_option('#att-unit', 'paul'); lp.fill('#att-code', new_code); lp.click('#att-unlock-submit')
-        expect(lp.locator('.att-bar b')).to_have_text('保羅團')
-        set_code(sp, 'paul', PAUL_CODE)  # back to the known test code for the next run
-        expect(lp.locator('.att-bar')).to_be_visible()
-        lp.reload(); expect(lp.locator('#att-unlock-form')).to_be_visible()
-        unlock(lp, 'paul', PAUL_CODE)
-        lp.click('#att-lock'); expect(lp.locator('#att-unlock-form')).to_be_visible()
-        unlock(lp, 'paul', PAUL_CODE)
-        checks.append('Code reset by staff signs the old phone out; new code unlocks; lock button works')
+        # 只記人數 switch (同工 only): the link phone gets three counts instead of names.
+        sp.locator('.att-modes li[data-group="paul"] [data-mode="count"]').click()
+        expect(sp.locator('.att-modes li[data-group="paul"] [data-mode="count"]')).to_have_attribute('aria-pressed', 'true')
+        shot(sp, 'settings-1440.png')
+        tab(lp, date='2026-10-03'); expect(lp.locator('.att-row')).to_have_count(0); expect(lp.locator('#att-member_count')).to_be_visible()
+        shot(lp, 'count-mode-390.png')
+        sp.locator('.att-modes li[data-group="paul"] [data-mode="names"]').click()
+        expect(sp.locator('.att-modes li[data-group="paul"] [data-mode="names"]')).to_have_attribute('aria-pressed', 'true')
+        tab(lp, date='2026-10-03'); expect(lp.locator('.att-row')).to_have_count(5)
+        checks.append('記名／只記人數 per group by 同工; the link phone shows counts only, names kept')
+
+        # Link reset: the phone that remembered the old link is stopped at once.
+        new_link = make_link(sp, 'paul')
+        assert new_link != link
+        assert lctx.request.get(BASE + '/api/attendance/me').status == 401
+        lp.goto(BASE + '/members/attendance/'); expect(lp.locator('#att-link-gone')).to_be_visible()
+        shot(lp, 'link-gone-390.png')
+        stale = new_page(lctx); stale.goto(link); expect(stale.locator('#link-status')).to_have_text('這條點名連結已失效或不完整。'); stale.close()
+        open_link(lp, new_link, '保羅團')
+        lp.click('#att-forget'); expect(lp.locator('#att-forgotten')).to_be_visible()
+        assert not [c for c in lctx.cookies() if c['name'] == '__Host-fhcem_link']
+        open_link(lp, new_link, '保羅團')
+        checks.append('Link reset by 同工 stops the old link and the phone holding it; new link works; "移除連結" forgets it on this phone')
 
         # Every view at 320, 390 and 1440: no overflow, targets ≥ 44px.
         for w, h in [(320, 740), (390, 844), (1440, 1000)]:
             for page in (lp, sp):
                 page.set_viewport_size({'width': w, 'height': h})
             for name, q in [('', {}), ('history', {}), ('roster', {}), ('report', {'month': '2026-10'}), ('stats', {'year': '2026'})]:
-                tab(lp, name, **q); layout(lp, f'leader {name or "roll"} {w}')
+                tab(lp, name, **q); layout(lp, f'link {name or "roll"} {w}')
                 if w == 320 and not name:
                     shot(lp, 'roll-320.png')
-            for name, q in [('', {'group': 'sun-worship'}), ('codes', {}), ('settings', {}), ('report', {'month': '2026-10'})]:
+            for name, q in [('', {'group': 'sun-worship'}), ('', {'group': 'esther', 'date': '2026-10-31'}), ('links', {}), ('settings', {}), ('report', {'month': '2026-10'})]:
                 tab(sp, name, **q); layout(sp, f'staff {name or "roll"} {w}')
-            lp.goto(BASE + '/members/attendance/?tab=roll'); lp.wait_for_selector('.att-roll')
-        checks.append('320×740, 390×844, 1440×1000: leader and staff views, no overflow, every button and tab ≥ 44px')
+            if w == 1440:
+                tab(lp); shot(lp, 'link-roll-1440.png')
+        checks.append('320×740, 390×844, 1440×1000: link and 同工 views, no overflow, every button and tab ≥ 44px')
+
+        # Changing the 同工 password signs every 同工 phone out.
+        tab(ap, 'settings'); ap.click('#att-staffpw-open'); ap.fill('#att-new-staffpw', STAFF_PW_2); ap.click('#att-staffpw .att-code-form button[type=submit]')
+        expect(ap.locator('#att-staffpw .att-link-value')).to_have_value(STAFF_PW_2)
+        assert sctx.request.get(BASE + '/api/session').json() == {'authenticated': False}
+        assert actx.request.get(BASE + '/api/session').json()['role'] == 'admin'
+        r = anon.request.post(BASE + '/api/login', headers={'Origin': BASE}, data={'password': STAFF_PW}, max_redirects=0); assert r.status == 401
+        assert login(sctx, STAFF_PW_2) == 'staff'
+        checks.append('Changing the 同工 password signs 同工 out at once; the old password is refused, the new one works')
         assert not errors, errors
         browser.close()
     out = {'base': BASE, 'checks': checks, 'pageErrors': errors, 'shots': str(SHOTS)}
     print(json.dumps(out, ensure_ascii=False, indent=1))
 except Exception as error:
     message = str(error)
-    for value in (password, admin_code):
+    for value in (password, admin_code, admin_code.lower()):
         message = message.replace(value, '[REDACTED]')
     print(message)
     raise SystemExit(1)

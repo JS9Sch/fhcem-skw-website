@@ -248,4 +248,23 @@
   .workspace .att-state .status-select{display:flex;width:100%}
   .workspace .att-state .status-select button{flex:1;min-width:0}
 }
-@media (prefers-reduced-motion:reduce){.workspace .att-btn,.workspace .att-step{transition:none}}
+/* Per-tap saving: a small state next to each name (saving / saved / not sent / failed). */
+.workspace .att-mark-state{display:inline-block;margin-left:8px;font-size:12px;font-weight:500;letter-spacing:.04em;vertical-align:2px;border-radius:2px}
+.workspace .att-mark-state:empty,.workspace .att-mark-state:not([data-s]){display:none}
+.workspace .att-mark-state[data-s=saving]{color:var(--ink-soft)}
+.workspace .att-mark-state[data-s=saved]{color:var(--green);animation:att-fade 2.4s ease-out forwards}
+.workspace .att-mark-state[data-s=queued]{padding:0 6px;background:var(--amber);color:var(--ink)}
+.workspace .att-mark-state[data-s=failed]{padding:0 6px;background:var(--red);color:#fff}
+@keyframes att-fade{0%,60%{opacity:1}100%{opacity:0}}
+.workspace .att-row:has(.att-mark-state[data-s=failed]){background:#FBEDEC}
+.workspace .att-days[hidden]{display:none}
+.workspace .att-days button{min-width:0}
+.workspace .att-days-note{margin:4px 0 0}
+.workspace .att-last{display:block;margin-top:2px;font-size:13px}
+.workspace .att-link-result{max-width:560px;margin:4px 0 16px}
+.workspace .att-link-value{display:block;width:100%;min-height:46px;margin:6px 0 12px;padding:8px 10px;border:1.5px solid var(--ink-soft);border-radius:3px;background:var(--plaster);font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:14px;color:var(--ink)}
+.workspace .att-link-value.att-code-value{font-size:24px;letter-spacing:.1em}
+.workspace .att-modes .status-select button{font-size:15px;min-width:76px}
+/* Link-only phones: the roll call alone, no member menu. */
+.workspace.link-workspace .work-main{max-width:980px;margin:0 auto}
+@media (prefers-reduced-motion:reduce){.workspace .att-btn,.workspace .att-step{transition:none}.workspace .att-mark-state[data-s=saved]{animation:none}}

@@ -14,7 +14,7 @@ from browser_target import browser_target, same_origin
 PAGES = ['/', '/about/', '/about/faith/', '/about/history/', '/about/churches/', '/meetings/',
          '/activities/', '/notices/', '/notices/weather/', '/notices/song-copyright/',
          '/notices/recreation/', '/notices/weddings-funerals/', '/notices/covid-2023/',
-         '/contact/', '/credits/', '/login/', '/no-such-page/']
+         '/contact/', '/credits/', '/login/', '/attendance/', '/no-such-page/']
 SIZES = [('desktop', 1440, 1000), ('mobile', 390, 844), ('narrow', 320, 740)]
 FONT_HOSTS = ('fonts.googleapis.com', 'fonts.gstatic.com')
 MEMBER_VIEWS = ['/members/', '/members/resources/', '/members/attendance/', '/members/songs/', '/members/rooms/', '/members/ppt/']

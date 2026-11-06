@@ -36,10 +36,25 @@ export function loginPage() {
         <div class="field"><input id="password" name="password" type="password" autocomplete="current-password" autocapitalize="off" spellcheck="false" required maxlength="128" placeholder=" " aria-describedby="login-error"><label for="password">密碼</label></div>
         <p id="login-error" class="err" role="alert"></p>
         <button class="btn" type="submit" id="login-submit">登入 ${arrow}</button>
-        <p class="form-note">登入後 8 小時內有效。忘記密碼請向傳道同工查詢。</p>
+        <p class="form-note">會友登入後 8 小時內有效；傳道同工用同工密碼登入，這部手機會記住 90 日。忘記密碼請向傳道同工查詢。</p>
       </form>
     </div>`;
   return page({ path: '/login/', title: '肢體專區登入', description: '信望愛福音會筲箕灣堂肢體專區登入。', body, bodyClass: 'login-page' });
+}
+
+// Opens a fellowship's roll-call link, /attendance/#<token>. The token stays in the
+// fragment (never sent to the server in the URL); /assets/att-link.js posts it once,
+// the phone keeps that group's cookie, and the roll call opens without the member password.
+export function attendanceLinkPage() {
+  const body = pagehead({ title: '團契點名', lead: '用團契的點名連結開啟，不用肢體專區密碼。' }) +
+    `<div class="login-wrap">
+      <div class="login link-open">
+        <p id="link-status" class="link-status" role="status" aria-live="polite">正在打開點名…</p>
+        <p id="link-help" class="form-note" hidden></p>
+        <p class="form-note">傳道同工可<a href="/login/?next=%2Fmembers%2Fattendance%2F">用同工密碼登入</a>。</p>
+      </div>
+    </div>`;
+  return page({ path: '/attendance/', title: '團契點名', description: '信望愛福音會筲箕灣堂團契點名連結。', body, bodyClass: 'login-page', head: '<script src="/assets/att-link.js" defer></script>\n' });
 }
 
 export function notFoundPage() {

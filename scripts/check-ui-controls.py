@@ -19,31 +19,26 @@ try:
         browser = p.chromium.launch()
         for width, height in [(320, 740), (390, 844), (1440, 1000)]:
             ctx = browser_context(browser, BASE, viewport={'width': width, 'height': height})
-            assert ctx.request.post(BASE + '/api/login', headers={'Origin': BASE},
-                                    data={'password': password}, max_redirects=0).status == 200
             page = ctx.new_page()
             page.on('pageerror', lambda error: errors.append(str(error)))
-            # Attendance (real data, D1) opens on its code form; the roll-call buttons
-            # (Uiverse WhiteNervosa) are exercised with test codes in check-attendance.py.
-            page.goto(BASE + '/members/attendance/')
-            expect(page.locator('h1')).to_have_text('團契點名')
-            expect(page.locator('#att-unlock-form')).to_be_visible()
-            page.locator('#att-unlock-submit').click()
-            expect(page.locator('#att-unlock-error')).to_have_text('請先選擇團或身分。')
-            expect(page.locator('#att-unit')).to_be_focused()
-            page.locator('#att-unit').select_option('paul')
-            page.locator('#att-unlock-submit').click()
-            expect(page.locator('#att-unlock-error')).to_have_text('請輸入點名碼。')
-            code = page.get_by_label('點名碼', exact=True)
-            expect(code).to_be_focused()
-            label = page.locator('label[for="att-code"]')
+            # Floating label (Uiverse alexruix) on the one login box: moves up once there is text.
+            page.goto(BASE + '/login/')
+            field = page.locator('#password'); label = page.locator('label[for="password"]')
             resting = label.bounding_box()['y']
-            code.fill('ABCD')  # Floating label (Uiverse alexruix) moves up once there is text.
-            page.wait_for_timeout(250)
+            field.fill('ABCD'); page.wait_for_timeout(250)
             assert label.bounding_box()['y'] < resting - 8
-            for target in [page.locator('#att-unlock-submit'), page.locator('#att-unit'), code]:
+            for target in [page.locator('#login-submit'), field]:
                 box = target.bounding_box()
                 assert box['height'] >= 44 and box['width'] >= 44, box
+            field.fill('')
+            assert ctx.request.post(BASE + '/api/login', headers={'Origin': BASE},
+                                    data={'password': password}, max_redirects=0).status == 200
+            # Attendance (real data, D1): a member without a group link is told how to open it;
+            # the roll-call buttons (Uiverse WhiteNervosa) are exercised in check-attendance.py.
+            page.goto(BASE + '/members/attendance/')
+            expect(page.locator('h1')).to_have_text('團契點名')
+            expect(page.locator('#att-nolink')).to_be_visible()
+            expect(page.locator('#att-unlock-form, #att-code')).to_have_count(0)
             assert not page.evaluate('document.documentElement.scrollWidth > innerWidth + 1')
             page.screenshot(path=str(OUT / f'attendance-{width}.png'), full_page=True, animations="disabled")
 
@@ -108,7 +103,7 @@ try:
             page.screenshot(path=str(OUT / f'home-{width}.png'), full_page=True, animations="disabled")
             assert ctx.request.post(BASE + '/api/logout', headers={'Origin': BASE}, max_redirects=0).ok
             ctx.close()
-            checks.append(f'{width}×{height}: song search/clear/filter, attendance code form, category tabs, form check, CTA navigation, reveals, no overflow')
+            checks.append(f'{width}×{height}: login floating label, attendance link notice, song search/clear/filter, category tabs, form check, CTA navigation, reveals, no overflow')
         browser.close()
     assert not errors, errors
     result = {'base': BASE, 'checks': checks, 'pageErrors': errors}

@@ -5,10 +5,11 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createHash, randomBytes } from 'node:crypto';
 import { DatabaseSync } from 'node:sqlite';
-import { scheduledDates, weekOfMonth, lastScheduled, nearbyDates, monthTable, tableCsv, monthTitle, cleanName, normalizeCode, generateCode, total, hkToday } from '../src/attendance-core.js';
-import { newCodeHash, readRole, ROLE_COOKIE, ROLE_SECONDS } from '../src/unit-access.js';
+import { scheduledDates, weekOfMonth, lastScheduled, currentScheduled, altDates, isMoved, nearbyDates, monthTable, tableCsv, monthTitle, cleanName, normalizeCode, generateCode, total, hkToday, newLinkToken, validLinkToken } from '../src/attendance-core.js';
+import { newCodeHash, readLink, LINK_COOKIE, LINK_SECONDS } from '../src/unit-access.js';
 import { attendanceApi } from '../src/attendance.js';
-import { sessionCookie } from '../src/auth.js';
+import { sessionCookie, COOKIE } from '../src/auth.js';
+import { respond } from '../src/router.js';
 
 const MIGRATION = readFileSync(new URL('../migrations/0001_attendance.sql', import.meta.url), 'utf8');
 function d1() {
@@ -28,34 +29,57 @@ function d1() {
     raw: db,
   };
 }
+const MEMBER_PASSWORD = 'test-only';
 const ADMIN_CODE = 'ADMIN-TEST-2026';
 async function environment() {
   const records = new Map(), admin = await newCodeHash(normalizeCode(ADMIN_CODE));
   let hits = 0;
   return {
-    PREVIEW_PASSWORD_HASH: createHash('sha256').update('test-only').digest('hex'), PREVIEW_SESSION_SECRET: randomBytes(32).toString('hex'),
+    PREVIEW_PASSWORD_HASH: createHash('sha256').update(MEMBER_PASSWORD).digest('hex'), PREVIEW_SESSION_SECRET: randomBytes(32).toString('hex'),
     ATTENDANCE_ADMIN_CODE_HASH: `${admin.salt}:${admin.hash}`, ATT_DB: d1(),
     SESSIONS: { idFromName: id => id, get: id => ({ create: async e => records.set(id, e), active: async e => records.get(id) === e, revoke: async () => records.delete(id) }) },
     LOGIN_LIMITER: { limit: async () => ({ success: ++hits <= 50 }) },
+    ASSETS: { fetch: async () => new Response('asset') },
   };
 }
 const NOW = Date.parse('2026-11-06T10:00:00+08:00'); // Friday
 const BASE = 'https://preview.example';
 function client(env) {
   const jar = {};
-  const call = async (method, path, body, { origin = BASE, now = NOW, cookies = jar } = {}) => {
+  const take = (response, cookies) => {
+    const set = response.headers.get('Set-Cookie');
+    if (set && cookies === jar) { const [pair] = set.split(';'); const i = pair.indexOf('='); const k = pair.slice(0, i), v = pair.slice(i + 1); if (v) jar[k] = v; else delete jar[k]; }
+  };
+  const headersFor = (cookies, origin, body) => {
     const headers = { Cookie: Object.entries(cookies).map(([k, v]) => `${k}=${v}`).join('; ') };
     if (origin) headers.Origin = origin;
     if (body !== undefined) headers['Content-Type'] = 'application/json';
-    const response = await attendanceApi(new Request(BASE + '/api/attendance/' + path, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) }), env, now);
-    const set = response.headers.get('Set-Cookie');
-    if (set && cookies === jar) { const [pair] = set.split(';'); const [k, v] = pair.split('='); if (v) jar[k] = v; else delete jar[k]; }
+    return headers;
+  };
+  const call = async (method, path, body, { origin = BASE, now = NOW, cookies = jar } = {}) => {
+    const response = await attendanceApi(new Request(BASE + '/api/attendance/' + path, { method, headers: headersFor(cookies, origin, body), body: body === undefined ? undefined : JSON.stringify(body) }), env, now);
+    take(response, cookies);
     const type = response.headers.get('Content-Type') || '';
     return { status: response.status, headers: response.headers, body: type.includes('json') ? await response.json() : await response.text() };
   };
-  return { jar, call, login: async () => { const c = await sessionCookie(env); const [k, v] = c.split(';')[0].split('='); jar[k] = v; } };
+  // Through the whole Worker (login box, session API, page gating).
+  const page = async (method, path, body, { origin = BASE, cookies = jar } = {}) => {
+    const response = await respond(new Request(BASE + path, { method, redirect: 'manual', headers: headersFor(cookies, origin, body), body: body === undefined ? undefined : JSON.stringify(body) }), env, { memberScript: '// app', memberHTML: '<!doctype html>' });
+    take(response, cookies);
+    const type = response.headers.get('Content-Type') || '';
+    return { status: response.status, headers: response.headers, body: type.includes('json') ? await response.json() : await response.text() };
+  };
+  return { jar, call, page,
+    login: async (password = MEMBER_PASSWORD) => (await page('POST', '/api/login', { password })).status,
+    member: async () => { const c = await sessionCookie(env); const [k, v] = c.split(';')[0].split('='); jar[k] = v; } };
 }
-async function admin(env) { const c = client(env); await c.login(); assert.equal((await c.call('POST', 'unlock', { unit: 'admin', code: ADMIN_CODE })).status, 200); return c; }
+async function admin(env) { const c = client(env); assert.equal(await c.login(ADMIN_CODE.toLowerCase()), 200); return c; }
+async function staffClient(env, a) {
+  const pw = (await a.call('POST', 'staff-password', { password: 'staff-test-01' })).body.password;
+  const c = client(env); assert.equal(await c.login(pw), 200); return c;
+}
+// Holder of a group's roll-call link (no member login).
+async function linkHolder(env, token) { const c = client(env); assert.equal((await c.call('POST', 'link', { token })).status, 200); return c; }
 
 test('rules: weekly, 2nd and 4th week, bi-monthly first week, five-Wednesday months', () => {
   assert.deepEqual(scheduledDates('{"weekday":6}', '2026-10'), ['2026-10-03', '2026-10-10', '2026-10-17', '2026-10-24', '2026-10-31']);
@@ -111,7 +135,24 @@ test('monthTable: "/" for no record or cancelled, reschedules by actual date, do
   assert.equal(total({ state: 'cancelled', headcount: null }, 3), null);
 });
 
-test('input checks: names, codes', () => {
+test('rules: 以斯帖團 meets on Saturday or the Friday before; 今次 counts the Friday', () => {
+  const esther = '{"weekday":6,"alt":[-1]}';
+  assert.deepEqual(scheduledDates(esther, '2026-11'), ['2026-11-07', '2026-11-14', '2026-11-21', '2026-11-28']);
+  assert.deepEqual(altDates(esther, '2026-11-07'), ['2026-11-06']);
+  assert.equal(currentScheduled(esther, '2026-11-06'), '2026-11-07'); // Friday: tomorrow's meeting may be held today
+  assert.equal(currentScheduled(esther, '2026-11-05'), '2026-10-31');
+  assert.equal(currentScheduled('{"weekday":6}', '2026-11-06'), '2026-10-31');
+  assert.deepEqual(nearbyDates(esther, '2026-11-06', 2), ['2026-10-31', '2026-11-07', '2026-11-14']);
+  assert.equal(isMoved(esther, '2026-11-07', '2026-11-06'), false);
+  assert.equal(isMoved(esther, '2026-11-07', '2026-11-05'), true);
+  assert.equal(isMoved('{"weekday":6}', '2026-11-07', '2026-11-06'), true);
+  assert.deepEqual(scheduledDates('{"weekday":5,"weeks":[1,3]}', '2026-11'), ['2026-11-06', '2026-11-20']); // 約瑟團
+  assert.throws(() => scheduledDates('{"weekday":6,"alt":[0]}', '2026-11'));
+  assert.throws(() => scheduledDates('{"weekday":6,"alt":[-7]}', '2026-11'));
+  assert.equal(total({ state: 'held', member_count: 7, new_friends: 1, other_guests: 2, headcount: null }, 0), 10);
+});
+
+test('input checks: names, passwords, link tokens', () => {
   assert.equal(cleanName('  測試　甲  '), '測試 甲');
   assert.equal(cleanName(''), null); assert.equal(cleanName('   '), null);
   assert.equal(cleanName('一'.repeat(20)), '一'.repeat(20)); assert.equal(cleanName('一'.repeat(21)), null);
@@ -120,90 +161,207 @@ test('input checks: names, codes', () => {
   const code = generateCode();
   assert.match(code, /^[A-HJKMNP-Z2-9]{5}-[A-HJKMNP-Z2-9]{5}$/);
   assert.notEqual(code, generateCode());
+  const token = newLinkToken();
+  assert(validLinkToken(token)); assert.notEqual(token, newLinkToken());
+  assert(!validLinkToken(token + 'x')); assert(!validLinkToken('a'.repeat(31) + '/'));
 });
 
-test('session, Origin and method checks come first', async () => {
+test('session, Origin and method checks come first; a plain 會友 has no roll-call role', async () => {
   const env = await environment(), c = client(env);
   assert.equal((await c.call('GET', 'me')).status, 401);
-  await c.login();
-  assert.equal((await c.call('GET', 'me')).status, 200);
+  assert.equal((await c.call('PUT', 'meeting', {})).status, 401);
+  await c.member();
+  const me = await c.call('GET', 'me');
+  assert.equal(me.status, 200); assert.equal(me.body.role, null); assert.equal(me.body.member, true);
   assert.equal((await c.call('PUT', 'meeting', {}, { origin: 'https://evil.example' })).status, 403);
   assert.equal((await c.call('PUT', 'meeting', {}, { origin: null })).status, 403);
   const wrongMethod = await c.call('DELETE', 'meeting');
   assert.equal(wrongMethod.status, 405); assert.equal(wrongMethod.headers.get('Allow'), 'GET, PUT');
-  assert.equal((await c.call('GET', 'unlock')).status, 405);
+  assert.equal((await c.call('GET', 'link')).status, 405);
   assert.equal((await c.call('GET', 'nope')).status, 404);
-  assert.equal((await c.call('GET', 'meeting?group=paul')).body.error, 'unlock_required');
+  assert.equal((await c.call('GET', 'meeting?group=paul')).body.error, 'link_required');
   assert.equal((await c.call('GET', 'me')).headers.get('Cache-Control'), 'no-store');
-  const noDb = client({ ...env, ATT_DB: undefined }); await noDb.login();
+  const noDb = client({ ...env, ATT_DB: undefined }); await noDb.member();
   assert.equal((await noDb.call('GET', 'me')).status, 503);
 });
 
-test('codes: unlock, wrong code, reset invalidates old cookie, 90-day expiry, only admin sets staff code', async () => {
-  const env = await environment(), a = await admin(env);
-  const leader = client(env); await leader.login();
-  assert.equal((await leader.call('POST', 'unlock', { unit: 'paul', code: 'WHATEVER1' })).body.error, 'code_not_set');
-  const set = await a.call('POST', 'code', { target: 'paul' });
-  assert.equal(set.status, 200); assert.match(set.body.code, /^[A-Z2-9]{5}-[A-Z2-9]{5}$/);
-  assert.equal((await leader.call('POST', 'unlock', { unit: 'paul', code: 'WRONGCODE9' })).status, 401);
-  assert.equal((await leader.call('POST', 'unlock', { unit: 'paul', code: set.body.code.toLowerCase() })).status, 200);
-  const cookie = leader.jar[ROLE_COOKIE];
-  assert.match(cookie, /^group\.paul\.2\.\d{10}\.[a-f0-9]{64}$/);
-  assert.equal((await leader.call('GET', 'me')).body.role.name, '保羅團');
-  assert.equal((await leader.call('GET', 'meeting?group=paul')).status, 200);
-  // 90 days later the cookie is refused even though the code is unchanged.
-  assert.equal((await leader.call('GET', 'meeting?group=paul', undefined, { now: NOW + ROLE_SECONDS * 1000 + 1000 })).status, 403);
-  assert(await readRole(new Request(BASE, { headers: { Cookie: `${ROLE_COOKIE}=${cookie}` } }), env, NOW + (ROLE_SECONDS - 60) * 1000));
-  // Tampered cookie.
-  const forged = { ...leader.jar, [ROLE_COOKIE]: cookie.replace('group.paul', 'group.david') };
-  assert.equal((await leader.call('GET', 'meeting?group=david', undefined, { cookies: forged })).status, 403);
-  // Staff code: admin only.
-  const staffSet = await a.call('POST', 'code', { target: 'staff', code: 'staff-code-01' });
-  assert.equal(staffSet.status, 200);
-  const staff = client(env); await staff.login();
-  assert.equal((await staff.call('POST', 'unlock', { unit: 'staff', code: 'STAFFCODE01' })).status, 200);
-  assert.equal((await staff.call('POST', 'code', { target: 'staff' })).status, 403);
-  assert.equal((await leader.call('POST', 'code', { target: 'paul' })).status, 403);
-  // Staff resets the group code: the leader's remembered cookie stops working at once.
-  const reset = await staff.call('POST', 'code', { target: 'paul' });
-  assert.equal(reset.body.version, 3);
-  assert.equal((await leader.call('GET', 'meeting?group=paul')).body.error, 'unlock_required');
-  assert.equal((await leader.call('GET', 'me')).body.role, null);
-  assert.equal((await leader.call('POST', 'unlock', { unit: 'paul', code: reset.body.code })).status, 200);
-  assert.equal((await a.call('POST', 'code', { target: 'paul', code: 'short' })).body.error, 'invalid_code_format');
-  assert.equal((await a.call('POST', 'code', { target: 'sun-worship' })).body.error, 'wrong_group_kind');
-  // Lock clears the role cookie.
-  await leader.call('POST', 'lock', {});
-  assert.equal(leader.jar[ROLE_COOKIE], undefined);
-  // Rotating the admin secret signs admins out.
-  assert.equal((await a.call('GET', 'meeting?group=paul')).status, 200);
+test('one login box: member 8 h, 同工 and admin 90 days; 同工 password change signs 同工 out', async () => {
+  const env = await environment();
+  const m = client(env);
+  assert.equal(await m.login('wrong-password'), 401);
+  assert.equal(await m.login(MEMBER_PASSWORD), 200);
+  assert.match(m.jar[COOKIE], /^member\.0\.\d{10}\./);
+  assert.deepEqual((await m.page('GET', '/api/session')).body, { authenticated: true, role: 'member' });
+  const a = await admin(env);
+  assert.match(a.jar[COOKIE], /^admin\.0\./);
+  assert.equal((await a.call('GET', 'me')).body.role.name, '網站管理員');
+  assert.equal((await a.call('GET', 'me')).body.staffHasPassword, false);
+  // No 同工 password yet: a code-like password is refused.
+  assert.equal(await client(env).login('STAFF-TEST-01'), 401);
+  const set = await a.call('POST', 'staff-password', {});
+  assert.equal(set.status, 200); assert.match(set.body.password, /^[A-Z2-9]{5}-[A-Z2-9]{5}$/);
+  assert.equal((await a.call('POST', 'staff-password', { password: 'short' })).body.error, 'invalid_password_format');
+  const s = client(env); assert.equal(await s.login(set.body.password.toLowerCase().replace('-', ' ')), 200);
+  assert.match(s.jar[COOKIE], /^staff\.1\./);
+  const cookie = (await s.page('POST', '/api/login', { password: set.body.password }, { cookies: {} })).headers.get('Set-Cookie');
+  assert.match(cookie, /Max-Age=7776000/); // 90 days
+  assert.match((await m.page('POST', '/api/login', { password: MEMBER_PASSWORD }, { cookies: {} })).headers.get('Set-Cookie'), /Max-Age=28800/);
+  assert.equal((await s.call('GET', 'me')).body.role.name, '傳道同工');
+  assert.deepEqual((await s.page('GET', '/api/session')).body, { authenticated: true, role: 'staff' });
+  assert.equal((await s.page('GET', '/members/rooms/')).status, 200); // 同工 are members too
+  // Only the admin sets the 同工 password; a member cannot touch staff routes.
+  assert.equal((await s.call('POST', 'staff-password', {})).status, 403);
+  assert.equal((await m.call('POST', 'links', { group: 'paul' })).body.error, 'link_required');
+  // Changing the 同工 password signs every 同工 phone out at once.
+  const changed = await a.call('POST', 'staff-password', { password: 'staff-test-02' });
+  assert.equal(changed.body.version, 2);
+  assert.equal((await s.call('GET', 'me')).status, 401);
+  assert.deepEqual((await s.page('GET', '/api/session')).body, { authenticated: false });
+  assert.equal(await client(env).login(set.body.password), 401);
+  assert.equal(await client(env).login('STAFF TEST 02'), 200);
+  // Rotating the admin secret signs admins out, and the old admin password stops working.
   const rotated = { ...env, ATTENDANCE_ADMIN_CODE_HASH: 'a'.repeat(32) + ':' + 'b'.repeat(64) };
-  assert.equal((await client(rotated).call('GET', 'meeting?group=paul', undefined, { cookies: a.jar })).status, 403);
+  assert.equal((await client(rotated).call('GET', 'me', undefined, { cookies: a.jar })).status, 401);
+  assert.equal(await client(rotated).login(ADMIN_CODE), 401);
+  // …and the 同工 password (hashed with the old admin salt) still works with a second hash.
+  assert.equal(await client(rotated).login('staff-test-02'), 200);
 });
 
-async function paulLeader(env) {
-  const a = await admin(env), code = (await a.call('POST', 'code', { target: 'paul' })).body.code;
-  const c = client(env); await c.login(); await c.call('POST', 'unlock', { unit: 'paul', code });
-  return { a, c };
-}
+test('roll-call links: open without login, only that group, reset stops old phones, recorded as 「保羅團連結」', async () => {
+  const env = await environment(), a = await admin(env);
+  const link = await a.call('POST', 'links', { group: 'paul' });
+  assert.equal(link.status, 200); assert(validLinkToken(link.body.token)); assert.equal(link.body.version, 1);
+  assert.equal((await a.call('GET', 'me')).body.groups.find(g => g.id === 'paul').hasLink, true);
+  assert.equal(env.ATT_DB.raw.prepare("SELECT link_hash FROM groups WHERE id = 'paul'").get().link_hash.length, 64); // only the hash is stored
+  assert.equal((await a.call('POST', 'links', { group: 'sun-worship' })).body.error, 'wrong_group_kind');
+  // Wrong or malformed tokens.
+  const stranger = client(env);
+  assert.equal((await stranger.call('POST', 'link', { token: 'x'.repeat(32) })).body.error, 'invalid_link');
+  assert.equal((await stranger.call('POST', 'link', { token: '../etc' })).status, 401);
+  assert.equal((await stranger.call('POST', 'link', { token: link.body.token }, { origin: 'https://evil.example' })).status, 403);
+  // The holder: no member password, full 保羅團 role, nothing else.
+  const h = await linkHolder(env, link.body.token);
+  assert.match(h.jar[LINK_COOKIE], /^paul\.1\.\d{10}\.[a-f0-9]{64}$/);
+  assert.equal(h.jar[COOKIE], undefined);
+  const me = (await h.call('GET', 'me')).body;
+  assert.equal(me.role.name, '保羅團'); assert.deepEqual(me.groups.map(g => g.id), ['paul']); assert.equal(me.groups[0].hasLink, undefined);
+  assert.equal((await h.call('GET', 'meeting?group=paul')).status, 200);
+  assert.equal((await h.call('GET', 'meeting?group=david')).status, 403);
+  assert.equal((await h.call('POST', 'links', { group: 'paul' })).status, 403);
+  assert.equal((await h.call('PATCH', 'group', { group: 'paul', record_mode: 'count' })).status, 403);
+  assert.deepEqual((await h.call('GET', 'report?month=2026-10')).body.rows.map(r => r.id), ['paul']);
+  // Pages: the attendance page and its script open; other member pages and data do not.
+  assert.deepEqual((await h.page('GET', '/api/session')).body, { authenticated: false, link: true });
+  assert.equal((await h.page('GET', '/members/attendance/')).status, 200);
+  assert.equal((await h.page('GET', '/members/app.js')).status, 200);
+  assert.equal((await h.page('GET', '/members/')).status, 302);
+  assert.equal((await h.page('GET', '/members/resources/')).status, 302);
+  assert.equal((await h.page('GET', '/api/member-resources')).status, 401);
+  // Changes through the link are recorded as 「保羅團連結」.
+  const id = (await h.call('POST', 'members', { group: 'paul', name: '測試甲' })).body.member.id;
+  await h.call('PUT', 'mark', { group: 'paul', kind: 'regular', scheduled_date: '2026-10-31', member: id, status: 'present' });
+  assert.equal(env.ATT_DB.raw.prepare("SELECT updated_role FROM meetings WHERE scheduled_date = '2026-10-31'").get().updated_role, '保羅團連結');
+  assert.equal(env.ATT_DB.raw.prepare('SELECT updated_role FROM attendance').get().updated_role, '保羅團連結');
+  assert.equal(env.ATT_DB.raw.prepare('SELECT updated_role FROM members').get().updated_role, '保羅團連結');
+  // 90 days later the phone needs the link again (the link itself never expires).
+  assert.equal((await h.call('GET', 'me', undefined, { now: NOW + LINK_SECONDS * 1000 + 1000 })).status, 401);
+  assert(await readLink(new Request(BASE, { headers: { Cookie: `${LINK_COOKIE}=${h.jar[LINK_COOKIE]}` } }), env, NOW + (LINK_SECONDS - 60) * 1000));
+  // A tampered cookie is refused.
+  assert.equal((await h.call('GET', 'meeting?group=david', undefined, { cookies: { [LINK_COOKIE]: h.jar[LINK_COOKIE].replace('paul', 'david') } })).status, 401);
+  // Reset by 同工: the old link and the phone holding it stop at once; the new link works.
+  const s = await staffClient(env, a);
+  const reset = await s.call('POST', 'links', { group: 'paul' });
+  assert.equal(reset.body.version, 2);
+  assert.equal((await h.call('GET', 'me')).status, 401);
+  assert.equal((await h.page('GET', '/members/attendance/')).status, 200); // page shell only; the API says the link is gone
+  assert.equal((await client(env).call('POST', 'link', { token: link.body.token })).body.error, 'invalid_link');
+  await linkHolder(env, reset.body.token);
+  // Forget: the phone drops the link cookie.
+  await h.call('POST', 'link', { token: reset.body.token });
+  assert(h.jar[LINK_COOKIE]);
+  await h.call('POST', 'forget', {});
+  assert.equal(h.jar[LINK_COOKIE], undefined);
+  // A member who also holds a link acts for that group; 同工 stay 同工.
+  const both = client(env); await both.member(); await both.call('POST', 'link', { token: reset.body.token });
+  assert.equal((await both.call('GET', 'me')).body.role.name, '保羅團');
+  await s.call('POST', 'link', { token: reset.body.token });
+  assert.equal((await s.call('GET', 'me')).body.role.name, '傳道同工');
+});
 
-test('permissions: a group sees only its own group; staff sees all', async () => {
-  const env = await environment(), { a, c } = await paulLeader(env);
-  assert.equal((await c.call('GET', 'meeting?group=david')).status, 403);
-  assert.equal((await c.call('GET', 'members?group=david')).status, 403);
-  assert.equal((await c.call('POST', 'members', { group: 'david', name: '測試甲' })).status, 403);
-  assert.equal((await c.call('PUT', 'meeting', { group: 'david', kind: 'regular', state: 'held', scheduled_date: '2026-11-01', actual_date: '2026-11-01', marks: {} })).status, 403);
-  assert.deepEqual((await c.call('GET', 'me')).body.groups.map(g => g.id), ['paul']);
-  assert.deepEqual((await c.call('GET', 'report?month=2026-10')).body.rows.map(r => r.id), ['paul']);
+test('permissions: a link sees only its own group; staff sees all; 記名／只記人數 is staff-only', async () => {
+  const env = await environment(), a = await admin(env);
+  const h = await linkHolder(env, (await a.call('POST', 'links', { group: 'paul' })).body.token);
+  assert.equal((await h.call('GET', 'members?group=david')).status, 403);
+  assert.equal((await h.call('POST', 'members', { group: 'david', name: '測試甲' })).status, 403);
+  assert.equal((await h.call('PUT', 'meeting', { group: 'david', kind: 'regular', scheduled_date: '2026-11-01', state: 'held' })).status, 403);
   assert.equal((await a.call('GET', 'meeting?group=david')).status, 200);
   assert.equal((await a.call('GET', 'report?month=2026-10')).body.rows.length, 16);
-  assert.equal((await a.call('GET', 'me')).body.staffHasCode, false);
-  // A group that has not started yet lists only 今次 as 未點名, not twelve weeks of gaps.
   assert.deepEqual((await a.call('GET', 'history?group=david')).body.items.map(x => [x.scheduled_date, x.state]), [['2026-11-01', 'missing']]);
+  assert.equal((await h.call('GET', 'me')).body.groups[0].record_mode, 'names');
+  assert.equal((await a.call('PATCH', 'group', { group: 'paul', record_mode: 'count' })).body.group.record_mode, 'count');
+  assert.equal((await a.call('PATCH', 'group', { group: 'paul', record_mode: 'x' })).body.error, 'invalid_mode');
+  assert.equal((await a.call('PATCH', 'group', { group: 'sun-worship', record_mode: 'count' })).body.error, 'wrong_group_kind');
+  assert.equal((await h.call('GET', 'me')).body.groups[0].record_mode, 'count');
+  // 只記人數: three counts, total added up; names are kept, not deleted.
+  const put = await h.call('PUT', 'meeting', { group: 'paul', kind: 'regular', scheduled_date: '2026-10-03', member_count: 7, new_friends: 1, other_guests: 2 });
+  assert.equal(put.status, 200); assert.equal(put.body.meeting.member_count, 7);
+  assert.deepEqual((await a.call('GET', 'report?month=2026-10')).body.rows.find(r => r.id === 'paul').cells[0].value, 10);
+  assert.equal((await h.call('PUT', 'meeting', { group: 'paul', kind: 'regular', scheduled_date: '2026-10-03', headcount: 5 })).body.error, 'wrong_group_kind');
 });
 
-test('roll call: save, edit, reschedule, cancel, extra meetings, report, stats', async () => {
-  const env = await environment(), { a, c } = await paulLeader(env);
+test('per-tap saves: two phones marking together do not overwrite each other; fields change one by one', async () => {
+  const env = await environment(), a = await admin(env);
+  const token = (await a.call('POST', 'links', { group: 'paul' })).body.token;
+  const p1 = await linkHolder(env, token), p2 = await linkHolder(env, token);
+  const ids = [];
+  for (const name of ['測試甲', '測試乙', '測試丙']) ids.push((await p1.call('POST', 'members', { group: 'paul', name })).body.member.id);
+  const at = { group: 'paul', kind: 'regular', scheduled_date: '2026-10-31' };
+  const [r1, r2] = await Promise.all([p1.call('PUT', 'mark', { ...at, member: ids[0], status: 'present' }), p2.call('PUT', 'mark', { ...at, member: ids[1], status: 'leave' })]);
+  assert.equal(r1.status, 200); assert.equal(r2.status, 200);
+  await p1.call('PUT', 'mark', { ...at, member: ids[2], status: 'absent' });
+  const both = (await p2.call('GET', 'meeting?group=paul&date=2026-10-31')).body;
+  assert.deepEqual(both.marks, { [ids[0]]: 'present', [ids[1]]: 'leave', [ids[2]]: 'absent' });
+  assert.equal(env.ATT_DB.raw.prepare('SELECT COUNT(*) AS n FROM meetings').get().n, 1);
+  // Clearing one mark leaves the others.
+  const cleared = await p2.call('PUT', 'mark', { ...at, member: ids[2], status: null });
+  assert.deepEqual(cleared.body.marks, { [ids[0]]: 'present', [ids[1]]: 'leave' });
+  // Counters change only their own field.
+  await p1.call('PUT', 'meeting', { ...at, new_friends: 2 });
+  await p2.call('PUT', 'meeting', { ...at, other_guests: 1 });
+  const m = (await p1.call('GET', 'meeting?group=paul&date=2026-10-31')).body.meeting;
+  assert.equal(m.new_friends, 2); assert.equal(m.other_guests, 1);
+  // Validation.
+  assert.equal((await p1.call('PUT', 'mark', { ...at, member: ids[0], status: 'late' })).body.error, 'invalid_status');
+  assert.equal((await p1.call('PUT', 'mark', { ...at, member: 9999, status: 'present' })).body.error, 'invalid_member');
+  assert.equal((await p1.call('PUT', 'mark', { ...at, scheduled_date: '2026-11-07', member: ids[0], status: 'present' })).body.error, 'future_date');
+  assert.equal((await p1.call('PUT', 'mark', { ...at, scheduled_date: '2026-10-30', member: ids[0], status: 'present' })).body.error, 'not_scheduled');
+  assert.equal((await p1.call('PUT', 'meeting', { ...at, new_friends: -1 })).body.error, 'invalid_count');
+  assert.equal((await p1.call('PUT', 'meeting', { ...at })).body.error, 'invalid_request');
+  // Cancelling keeps the marks (undo-friendly) but blocks new ones until it is held again.
+  await p1.call('PUT', 'meeting', { ...at, state: 'cancelled' });
+  assert.equal((await p2.call('PUT', 'mark', { ...at, member: ids[2], status: 'present' })).body.error, 'meeting_cancelled');
+  await p1.call('PUT', 'meeting', { ...at, state: 'held' });
+  assert.equal(Object.keys((await p1.call('GET', 'meeting?group=paul&date=2026-10-31')).body.marks).length, 2);
+});
+
+test('以斯帖團 on a Friday: 今次 is Saturday\'s meeting, held on Friday without 改期', async () => {
+  const env = await environment(), a = await admin(env);
+  const h = await linkHolder(env, (await a.call('POST', 'links', { group: 'esther' })).body.token);
+  const id = (await h.call('POST', 'members', { group: 'esther', name: '測試甲' })).body.member.id;
+  const now = (await h.call('GET', 'meeting?group=esther')).body;
+  assert.equal(now.scheduled_date, '2026-11-07'); assert.equal(now.current, true); assert.deepEqual(now.alt_dates, ['2026-11-06']);
+  // Without a day, the first mark would be on Saturday (tomorrow): refused.
+  assert.equal((await h.call('PUT', 'mark', { group: 'esther', kind: 'regular', scheduled_date: '2026-11-07', member: id, status: 'present' })).body.error, 'future_date');
+  const r = await h.call('PUT', 'mark', { group: 'esther', kind: 'regular', scheduled_date: '2026-11-07', actual_date: '2026-11-06', member: id, status: 'present' });
+  assert.equal(r.status, 200); assert.equal(r.body.meeting.actual_date, '2026-11-06');
+  const hist = (await h.call('GET', 'history?group=esther')).body.items.find(x => x.scheduled_date === '2026-11-07');
+  assert.equal(hist.moved, false); assert.equal(hist.total, 1);
+  assert.equal((await h.call('GET', 'meeting?group=esther')).body.scheduled_date, '2026-11-07');
+});
+
+test('roll call: edit, reschedule, cancel, extra meetings, report, stats', async () => {
+  const env = await environment(), a = await admin(env);
+  const c = await linkHolder(env, (await a.call('POST', 'links', { group: 'paul' })).body.token);
   const ids = [];
   for (const name of ['測試甲', '測試乙', '測試丙', '測試丁']) ids.push((await c.call('POST', 'members', { group: 'paul', name })).body.member.id);
   assert.equal((await c.call('POST', 'members', { group: 'paul', name: '測試甲' })).body.error, 'duplicate_name');
@@ -211,29 +369,26 @@ test('roll call: save, edit, reschedule, cancel, extra meetings, report, stats',
   const now = await c.call('GET', 'meeting?group=paul');
   assert.equal(now.body.scheduled_date, '2026-10-31'); assert.equal(now.body.current, true); assert.equal(now.body.meeting, null);
   assert.equal(now.body.members.length, 4);
-  const base = { group: 'paul', kind: 'regular', state: 'held', new_friends: 1, other_guests: 1 };
-  const put = body => c.call('PUT', 'meeting', { ...base, ...body });
-  let r = await put({ scheduled_date: '2026-10-03', actual_date: '2026-10-03', marks: { [ids[0]]: 'present', [ids[1]]: 'present', [ids[2]]: 'present', [ids[3]]: 'leave' } });
-  assert.equal(r.status, 200); assert.equal(r.body.marks[ids[3]], 'leave');
-  // Validation
-  assert.equal((await put({ scheduled_date: '2026-10-03', actual_date: '2026-10-03', marks: { [ids[0]]: 'late' } })).body.error, 'invalid_marks');
-  assert.equal((await put({ scheduled_date: '2026-10-03', actual_date: '2026-10-03', marks: { 9999: 'present' } })).body.error, 'invalid_marks');
-  assert.equal((await put({ scheduled_date: '2026-10-04', actual_date: '2026-10-04', marks: {} })).body.error, 'not_scheduled');
-  assert.equal((await put({ scheduled_date: '2026-11-07', actual_date: '2026-11-07', marks: {} })).body.error, 'future_date');
-  assert.equal((await put({ scheduled_date: '2026-10-03', actual_date: '2026-10-03', new_friends: -1, marks: {} })).body.error, 'invalid_count');
-  assert.equal((await put({ scheduled_date: '2026-10-03', actual_date: '2026-12-25', state: 'cancelled', marks: {} })).body.error, 'reschedule_too_far');
-  // Edit a past meeting: one more present.
-  r = await put({ scheduled_date: '2026-10-03', actual_date: '2026-10-03', marks: { [ids[0]]: 'present', [ids[1]]: 'present', [ids[2]]: 'present', [ids[3]]: 'present' } });
-  assert.equal(r.body.marks[ids[3]], 'present');
-  await put({ scheduled_date: '2026-10-10', actual_date: '2026-10-15', marks: { [ids[0]]: 'present', [ids[1]]: 'absent' } }); // moved into week 3
-  await put({ scheduled_date: '2026-10-17', actual_date: '2026-10-17', new_friends: 0, other_guests: 0, marks: { [ids[0]]: 'present', [ids[1]]: 'present' } });
-  await put({ scheduled_date: '2026-10-24', actual_date: '2026-10-24', state: 'cancelled', marks: { [ids[0]]: 'present' } });
-  const cancelled = await c.call('GET', 'meeting?group=paul&date=2026-10-24');
-  assert.equal(cancelled.body.meeting.state, 'cancelled'); assert.deepEqual(cancelled.body.marks, {});
-  // Extra meeting with a client ref: sending it twice (offline queue replay) makes one meeting.
-  const ref = crypto.randomUUID(), extra = { group: 'paul', kind: 'extra', ref, state: 'held', actual_date: '2026-10-25', new_friends: 0, other_guests: 0, marks: { [ids[0]]: 'present' } };
-  assert.equal((await c.call('PUT', 'meeting', extra)).status, 200);
-  assert.equal((await c.call('PUT', 'meeting', extra)).status, 200);
+  const marks = async (scheduled_date, list, extra = {}) => {
+    for (const [i, status] of Object.entries(list)) {
+      const r = await c.call('PUT', 'mark', { group: 'paul', kind: 'regular', scheduled_date, member: ids[i], status, ...extra });
+      assert.equal(r.status, 200, JSON.stringify(r.body));
+    }
+  };
+  const meeting = (scheduled_date, fields) => c.call('PUT', 'meeting', { group: 'paul', kind: 'regular', scheduled_date, ...fields });
+  await marks('2026-10-03', ['present', 'present', 'present', 'leave']);
+  await meeting('2026-10-03', { new_friends: 1, other_guests: 1 });
+  await marks('2026-10-03', { 3: 'present' }); // edit a past meeting: one more present
+  await meeting('2026-10-10', { state: 'held', actual_date: '2026-10-15' }); // moved into week 3
+  await marks('2026-10-10', ['present', 'absent']);
+  assert.equal((await meeting('2026-10-10', { actual_date: '2026-09-01' })).body.error, 'reschedule_too_far');
+  await marks('2026-10-17', ['present', 'present']);
+  await meeting('2026-10-24', { state: 'cancelled' });
+  assert.equal((await c.call('GET', 'meeting?group=paul&date=2026-10-24')).body.meeting.state, 'cancelled');
+  // Extra meeting with a client ref: a queued save sent twice makes one meeting.
+  const ref = crypto.randomUUID(), extra = { group: 'paul', kind: 'extra', ref, actual_date: '2026-10-25', member: ids[0], status: 'present' };
+  assert.equal((await c.call('PUT', 'mark', extra)).status, 200);
+  assert.equal((await c.call('PUT', 'mark', extra)).status, 200);
   assert.equal(env.ATT_DB.raw.prepare("SELECT COUNT(*) AS n FROM meetings WHERE kind = 'extra'").get().n, 1);
   assert.equal((await c.call('GET', `meeting?group=paul&ref=${ref}`)).body.meeting.actual_date, '2026-10-25');
   // A member who left keeps old records and stays listed on those meetings only.
@@ -243,30 +398,32 @@ test('roll call: save, edit, reschedule, cancel, extra meetings, report, stats',
   assert.equal((await c.call('PATCH', 'members', { id: ids[0], name: '測試乙' })).body.error, 'duplicate_name');
   assert.equal((await c.call('PATCH', 'members', { id: ids[0], name: '測試甲甲' })).body.member.name, '測試甲甲');
   assert.equal((await c.call('PATCH', 'members', { id: ids[3], status: 'active' })).body.member.status, 'active');
-  // Report: week1 = 4 present + 1 + 1; week2 "/" (moved); week3 = (1+1+1) + 2 doubled; week4 cancelled; week5 not yet.
+  // Report: week1 = 4 present + 1 + 1; week2 "/" (moved); week3 = 1 + 2 doubled; week4 cancelled; week5 not yet.
   const rep = await a.call('GET', 'report?month=2026-10');
   const row = rep.body.rows.find(x => x.id === 'paul');
-  assert.deepEqual(row.cells.map(x => x.value), [6, '/', 5, '/', '/']);
+  assert.deepEqual(row.cells.map(x => x.value), [6, '/', 3, '/', '/']);
   assert.equal(row.cells[2].double, true); assert.equal(row.cells[4].missing, true);
   assert.equal(rep.body.title, '聚會出席人數　2026 年 10 月份');
   const csv = await a.call('GET', 'report.csv?month=2026-10');
   assert.equal(csv.status, 200); assert.match(csv.headers.get('Content-Type'), /text\/csv/); assert.equal(csv.headers.get('Cache-Control'), 'no-store');
-  assert(csv.body.includes('保羅團,6,/,5,/,/'));
+  assert(csv.body.includes('保羅團,6,/,3,/,/'));
   assert.match(csv.headers.get('Content-Disposition'), /attachment/);
   // Head-count meetings: staff only fill a total.
-  const hc = await a.call('PUT', 'meeting', { group: 'sun-worship', kind: 'regular', state: 'held', scheduled_date: '2026-10-04', actual_date: '2026-10-04', headcount: 78 });
+  const hc = await a.call('PUT', 'meeting', { group: 'sun-worship', kind: 'regular', scheduled_date: '2026-10-04', headcount: 78 });
   assert.equal(hc.status, 200);
   assert.equal((await a.call('GET', 'report?month=2026-10')).body.rows.find(x => x.id === 'sun-worship').cells[0].value, 78);
+  assert.equal((await a.call('PUT', 'mark', { group: 'sun-worship', kind: 'regular', scheduled_date: '2026-10-04', member: 1, status: 'present' })).body.error, 'wrong_group_kind');
   // History lists records and past dates without a record.
   const hist = await c.call('GET', 'history?group=paul');
   assert.equal(hist.body.items.find(x => x.scheduled_date === '2026-10-31').state, 'missing');
   assert.equal(hist.body.items.find(x => x.scheduled_date === '2026-10-03').total, 6);
+  assert.equal(hist.body.items.find(x => x.scheduled_date === '2026-10-10').moved, true);
   // Stats: regular meetings only for averages.
   const st = await c.call('GET', 'stats?group=paul&year=2026');
-  assert.equal(st.body.months[9].count, 3); assert.equal(st.body.months[9].average, Math.round((6 + 3 + 2) / 3 * 10) / 10);
+  assert.equal(st.body.months[9].count, 3); assert.equal(st.body.months[9].average, Math.round((6 + 1 + 2) / 3 * 10) / 10);
   assert.equal(st.body.meetings.length, 4);
-  assert.equal(st.body.new_friends, 2);
+  assert.equal(st.body.new_friends, 1);
   // Rescheduled to today becomes 今次.
-  await put({ scheduled_date: '2026-10-31', actual_date: '2026-11-06', marks: { [ids[0]]: 'present' } });
+  await meeting('2026-10-31', { actual_date: '2026-11-06' });
   assert.equal((await c.call('GET', 'meeting?group=paul')).body.scheduled_date, '2026-10-31');
 });

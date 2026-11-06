@@ -10,7 +10,7 @@ import { meetingsPage } from './pages/meetings.mjs';
 import { activitiesPage } from './pages/activities.mjs';
 import { noticesPage, documentPage, covidPage } from './pages/notices.mjs';
 import { contactPage } from './pages/contact.mjs';
-import { creditsPage, loginPage, notFoundPage } from './pages/misc.mjs';
+import { creditsPage, loginPage, attendanceLinkPage, notFoundPage } from './pages/misc.mjs';
 import { memberIndex } from './pages/members.mjs';
 
 export const PAGES = {
@@ -30,6 +30,7 @@ export const PAGES = {
   'contact/index.html': contactPage,
   'credits/index.html': creditsPage,
   'login/index.html': loginPage,
+  'attendance/index.html': attendanceLinkPage,
   '404.html': notFoundPage,
   '../src/member-index.txt': memberIndex,
 };

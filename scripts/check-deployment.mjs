@@ -30,6 +30,16 @@ async function verify() {
   const attendance = await get('/api/attendance/me');
   assert.equal(attendance.status, 401, 'Anonymous attendance API must be denied');
   assert.equal(attendance.headers.get('cache-control'), 'no-store');
+  const attendancePage = await get('/members/attendance/');
+  assert.equal(attendancePage.status, 302, 'Attendance page needs a login or a group link');
+  const linkPage = await get('/attendance/');
+  assert.equal(linkPage.status, 200, 'Roll-call link page');
+  assert.match(await linkPage.text(), /att-link\.js/);
+  const badLink = await fetch(new URL('/api/attendance/link', base), {
+    method: 'POST', redirect: 'manual', signal: AbortSignal.timeout(20000),
+    headers: {'Content-Type': 'application/json', Origin: base.origin}, body: JSON.stringify({token: 'x'.repeat(32)}),
+  });
+  assert.equal(badLink.status, 401, 'Unknown roll-call link must be refused');
 
   const resources = await get('/api/member-resources');
   assert.equal(resources.status, 401, 'Anonymous Google source links must be denied');
@@ -47,7 +57,7 @@ async function verify() {
 for (let attempt = 1; attempt <= 3; attempt++) {
   try {
     await verify();
-    console.log('Deployment checks passed: homepage, Pages binding, anonymous access protection (incl. attendance API), two inline PDFs.');
+    console.log('Deployment checks passed: homepage, Pages binding, anonymous access protection (incl. attendance API and link page), two inline PDFs.');
     break;
   } catch (error) {
     if (attempt === 3) throw error;

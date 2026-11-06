@@ -25,10 +25,10 @@ try:
    page.evaluate("localStorage.setItem('fhcem-preview-v1',JSON.stringify({unit:'本人',attendance:{'本人:2026-11-01':{A:'出席'}},bookings:[{id:'old',unit:'本人',date:'2026-11-01',room:'示範房間 B',time:'14:00',purpose:'示範'}]}))")
    require_page_origin(page,BASE)
    page.locator('#password').fill(password);page.locator('#login-submit').click()
-   expect(page.locator('h1')).to_have_text('團契點名');expect(page).to_have_url(BASE+'/members/attendance/');expect(page.locator('#att-unlock-form')).to_be_visible();expect(page.locator('.unit-label')).to_have_count(0)
+   expect(page.locator('h1')).to_have_text('團契點名');expect(page).to_have_url(BASE+'/members/attendance/');expect(page.locator('#att-nolink')).to_be_visible();expect(page.locator('.unit-label')).to_have_count(0)
    assert page.request.get(BASE+'/members/app.js').status==200
    assert page.request.get(BASE+'/api/session').json()['authenticated']
-   cookies=ctx.cookies();cookie=next(c for c in cookies if c['name']=='__Host-fhcem_preview');assert cookie['httpOnly'] and cookie['secure'] and cookie['sameSite']=='Strict'
+   cookies=ctx.cookies();cookie=next(c for c in cookies if c['name']=='__Host-fhcem_preview');assert cookie['httpOnly'] and cookie['secure'] and cookie['sameSite']=='Strict';assert cookie['value'].startswith('member.') and (cookie['expires']-__import__('time').time())<=8*3600
    sensitive.append(cookie['value'])
    assert '__Host-fhcem_preview' not in page.evaluate('document.cookie')
    assert password not in page.request.get(BASE+'/assets/site.js').text();assert password not in page.request.get(BASE+'/members/app.js').text()
@@ -47,7 +47,7 @@ try:
    page.goto(BASE+'/members/attendance/');expect(page).to_have_url(re.compile(r'/login/\?next='));expect(page.locator('#password')).to_be_visible()
    ctx.close()
   assert not errors,errors
-  checks.append('390×844, 320×740, 1440×1000: password login, refresh, four tools (attendance asks for its code), room-demo unit switch, admin-name migration, logout, direct-link denial')
+  checks.append('390×844, 320×740, 1440×1000: password login, refresh, four tools (attendance points members to the group link), room-demo unit switch, admin-name migration, logout, direct-link denial')
   checks.append('Signed session cookie is HttpOnly/Secure/SameSite Strict; no password in frontend scripts')
   out={'base':BASE,'checks':checks,'pageErrors':errors};(OUT/('live-check.json' if BASE.startswith('https') else 'local-check.json')).write_text(json.dumps(out,ensure_ascii=False,indent=2));print(json.dumps(out,ensure_ascii=False));b.close()
 except Exception as e:

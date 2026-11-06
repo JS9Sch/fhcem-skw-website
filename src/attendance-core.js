@@ -22,21 +22,40 @@ export function daysInMonth(month) { const [y, m] = month.split('-').map(Number)
 // Week n of the month = days 7n-6 … 7n, i.e. ceil(day / 7). "第二個週五" is always in week 2.
 export function weekOfMonth(date) { return Math.ceil(Number(date.slice(8, 10)) / 7); }
 
-// A rule is one {weekday, weeks?, months?} object or a list of them (any may match).
+// A rule is one {weekday, weeks?, months?, alt?} object or a list of them (any may match).
+// `alt` lists other days, relative to the scheduled date, on which the same weekly
+// meeting may normally be held: 以斯帖團 is {"weekday":6,"alt":[-1]} (週六, or 週五).
+// The meeting keeps its scheduled date as its identity; meeting on an alt day is not 改期.
 export function parseRule(raw) {
   const value = typeof raw === 'string' ? JSON.parse(raw) : raw;
   const list = Array.isArray(value) ? value : [value];
   if (!list.length || list.length > 4) throw new Error('Invalid rule');
-  const ints = (a, lo, hi) => a === undefined || (Array.isArray(a) && a.length && a.length <= 12 && a.every(n => Number.isInteger(n) && n >= lo && n <= hi));
+  const ints = (a, lo, hi, max = 12) => a === undefined || (Array.isArray(a) && a.length && a.length <= max && a.every(n => Number.isInteger(n) && n >= lo && n <= hi));
   for (const r of list) {
-    if (!r || typeof r !== 'object' || !Number.isInteger(r.weekday) || r.weekday < 0 || r.weekday > 6 || !ints(r.weeks, 1, 5) || !ints(r.months, 1, 12)) throw new Error('Invalid rule');
+    if (!r || typeof r !== 'object' || !Number.isInteger(r.weekday) || r.weekday < 0 || r.weekday > 6 || !ints(r.weeks, 1, 5) || !ints(r.months, 1, 12) || !ints(r.alt, -6, 6, 2) || (r.alt || []).includes(0)) throw new Error('Invalid rule');
   }
   return list;
 }
-export function onRule(rule, date) {
-  const rules = Array.isArray(rule) && rule.every(r => typeof r === 'object') ? rule : parseRule(rule);
-  return rules.some(r => weekdayOf(date) === r.weekday && (!r.weeks || r.weeks.includes(weekOfMonth(date))) && (!r.months || r.months.includes(monthOf(date))));
+const rulesOf = rule => Array.isArray(rule) && rule.every(r => typeof r === 'object') ? rule : parseRule(rule);
+const matches = (r, date) => weekdayOf(date) === r.weekday && (!r.weeks || r.weeks.includes(weekOfMonth(date))) && (!r.months || r.months.includes(monthOf(date)));
+export function onRule(rule, date) { return rulesOf(rule).some(r => matches(r, date)); }
+// Other normal days for the meeting scheduled on `date` (sorted), e.g. the Friday before.
+export function altDates(rule, date) {
+  const offsets = new Set(rulesOf(rule).filter(r => matches(r, date)).flatMap(r => r.alt || []));
+  return [...offsets].sort((a, b) => a - b).map(n => addDays(date, n));
 }
+// The scheduled date of the "今次" meeting: the latest one already reachable today,
+// counting alt days (on a Friday, 以斯帖團's 今次 is the next day's Saturday meeting).
+export function currentScheduled(rule, today) {
+  const rules = rulesOf(rule), ahead = Math.max(0, ...rules.flatMap(r => (r.alt || []).map(n => -n)));
+  for (let i = ahead; i >= 1; i--) {
+    const d = addDays(today, i);
+    if (onRule(rules, d) && altDates(rules, d).some(x => x <= today)) return d;
+  }
+  return lastScheduled(rules, today);
+}
+// An actual date that differs from the scheduled one only counts as 改期 if it is not an alt day.
+export function isMoved(rule, scheduled, actual) { return !!scheduled && actual !== scheduled && !altDates(rule, scheduled).includes(actual); }
 export function scheduledDates(rule, month) {
   const rules = parseRule(rule), out = [];
   for (let d = 1; d <= daysInMonth(month); d++) {
@@ -58,20 +77,23 @@ export function nextScheduled(rule, date) {
 }
 // Scheduled dates around today for the meeting picker: up to `before` past ones (incl. today) and the next one.
 export function nearbyDates(rule, today, before = 6) {
-  const out = [], rules = parseRule(rule);
-  let d = lastScheduled(rules, today);
+  const out = [], rules = parseRule(rule), current = currentScheduled(rules, today);
+  let d = current;
   while (d && out.length < before) { out.unshift(d); d = lastScheduled(rules, addDays(d, -1)); }
-  const next = nextScheduled(rules, today);
+  const next = nextScheduled(rules, current || today);
   if (next) out.push(next);
   return out;
 }
 
 // 總人數 = 出席團友 + 新朋友 + 其他來賓; head-count meetings store one number.
+// A fellowship on 只記人數 stores the members present as member_count instead of names.
 export function total(meeting, present = 0) {
   if (meeting.state !== 'held') return null;
   if (meeting.headcount !== null && meeting.headcount !== undefined) return meeting.headcount;
-  return present + (meeting.new_friends || 0) + (meeting.other_guests || 0);
+  const members = meeting.member_count !== null && meeting.member_count !== undefined ? meeting.member_count : present;
+  return members + (meeting.new_friends || 0) + (meeting.other_guests || 0);
 }
+export function membersPresent(meeting, present = 0) { return meeting.member_count ?? present; }
 
 // 《月訊》 table: one row per group, weeks 1–5 by the actual meeting date. Only held
 // regular meetings count; cancelled or no record is "/". Two regular meetings in one
@@ -114,7 +136,7 @@ export function cleanName(value) {
 export function validCount(n, max = 999) { return Number.isInteger(n) && n >= 0 && n <= max; }
 export function validStatus(s) { return STATUSES.includes(s); }
 
-// Codes: letters and digits; spaces, hyphens and letter case are ignored when typed.
+// Passwords for 同工 and the admin: letters and digits; spaces, hyphens and letter case are ignored when typed.
 export function normalizeCode(value) {
   if (typeof value !== 'string' || value.length > 64) return null;
   const s = value.normalize('NFKC').toUpperCase().replace(/[\s-]/g, '');
@@ -129,4 +151,16 @@ export function generateCode(length = 10) {
     }
   }
   return out.slice(0, 5) + '-' + out.slice(5);
+}
+
+// Roll-call link tokens: 24 random bytes as base64url (32 characters, 192 bits).
+// Only the SHA-256 is stored; a token this long needs no slow hash.
+export function newLinkToken() {
+  const bytes = crypto.getRandomValues(new Uint8Array(24));
+  return btoa(String.fromCharCode(...bytes)).replace(/\+/g, '-').replace(/\//g, '_');
+}
+export const validLinkToken = t => typeof t === 'string' && /^[A-Za-z0-9_-]{32}$/.test(t);
+export async function linkHash(token) {
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(token));
+  return Array.from(new Uint8Array(digest), b => b.toString(16).padStart(2, '0')).join('');
 }
