@@ -384,8 +384,8 @@ button.btn{border:0;font:inherit;font-weight:700;cursor:pointer}
 .act h3{font-family:var(--sung);font-weight:900;font-size:28px;letter-spacing:.1em;line-height:1.2;display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}
 .act h3 small{font-family:var(--hei);font-weight:500;font-size:13px;letter-spacing:.06em;color:var(--ink-soft)}
 .act > p{color:var(--ink-soft);margin-top:4px}
-.act ul{list-style:none;margin-top:12px;grid-column:2}
-.act li{display:flex;justify-content:space-between;gap:12px;padding:7px 0;border-bottom:1px dashed var(--tile-light);font-size:15px}
+.act ul{list-style:none;margin-top:12px;grid-column:2;columns:2;column-gap:24px}
+.act li{display:flex;justify-content:space-between;gap:12px;padding:7px 0;border-bottom:1px dashed var(--tile-light);font-size:15px;break-inside:avoid}
 .act .more{grid-column:2;margin-top:14px;justify-self:start}
 
 /* notices + reader */
