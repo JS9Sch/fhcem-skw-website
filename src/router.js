@@ -74,7 +74,8 @@ export async function respond(request, env, files) {
   result=json({error:'unavailable'},503);
  }
  const response=new Response(result.body,result);
- if(new URL(request.url).pathname.endsWith('.pdf')&&response.headers.get('Content-Type')?.includes('application/pdf'))response.headers.set('Content-Disposition','inline');
+ // Static PDFs open in the browser; API PDFs (詩歌庫) set their own inline/attachment name.
+ if(new URL(request.url).pathname.endsWith('.pdf')&&response.headers.get('Content-Type')?.includes('application/pdf')&&!response.headers.has('Content-Disposition'))response.headers.set('Content-Disposition','inline');
  response.headers.set('X-Robots-Tag','noindex, nofollow, noarchive');
  response.headers.set('X-Content-Type-Options','nosniff');
  response.headers.set('Referrer-Policy','no-referrer');

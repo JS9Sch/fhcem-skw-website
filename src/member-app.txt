@@ -493,7 +493,7 @@ async function sgFetch(path,{method='GET',body,raw,type}={}){
 const sgTitle=s=>s.title_zh||s.title_en;
 const sgSub=s=>s.title_zh&&s.title_en?`<span class="sg-en" lang="en">${esc(s.title_en)}</span>`:'';
 const sgSize=n=>n>=1048576?(n/1048576).toFixed(1)+' MB':Math.max(1,Math.round(n/1024))+' KB';
-const sgDay=t=>{const d=new Date(t);return d.toLocaleDateString('zh-HK',{timeZone:'Asia/Hong_Kong',year:'numeric',month:'numeric',day:'numeric'})};
+const sgDay=t=>{const d=new Date(new Date(t).getTime()+8*3600e3);return `${d.getUTCFullYear()} 年 ${d.getUTCMonth()+1} 月 ${d.getUTCDate()} 日`};
 const sgFileLabel=f=>(f.kind==='drum'?'鼓譜':'樂譜')+(f.key?`（${f.key}調）`:'');
 const sgPdfUrl=(f,s)=>`${SONG_API}pdf/${f.id}/${encodeURIComponent(sgTitle(s)+'－'+sgFileLabel(f))}.pdf`;
 function songScreen(){return workShell('songs',title('詩歌庫','樂譜及鼓譜：在手機檢視，或下載 PDF。')+'<div id="sg-root" aria-live="polite">'+attLoading()+'</div>')}
@@ -502,9 +502,9 @@ async function loadSongs(sequence){
  const root=$('#sg-root');if(!root)return;
  const p=sgParams(),tab=p.get('tab'),song=p.get('song');
  try{
-  if(song)await sgSong(root,song,sequence);
-  else if(tab==='upload')await sgUpload(root,sequence);
+  if(tab==='upload')await sgUpload(root,sequence);
   else if(tab==='admin')await sgAdmin(root,sequence);
+  else if(song)await sgSong(root,song,sequence);
   else await sgList(root,sequence);
  }catch(err){if(!(err instanceof AttStop))throw err}
  root.querySelector('[data-sg-reload]')?.addEventListener('click',()=>{root.innerHTML=attLoading();loadSongs(sequence)});
@@ -560,7 +560,7 @@ async function sgSong(root,id,sequence){
  <section class="panel sg-song" aria-labelledby="sg-song-title"><h2 class="sg-title" id="sg-song-title">${esc(sgTitle(s))}</h2>${s.title_zh&&s.title_en?`<p class="sg-title-en" lang="en">${esc(s.title_en)}</p>`:''}
  <dl class="sg-meta">${s.copyright?`<div><dt>版權機構</dt><dd>${esc(s.copyright)}${s.copyright_guess?' <span class="sg-guess">估計</span>':''}</dd></div>`:''}${s.note?`<div><dt>備註</dt><dd>${esc(s.note)}</dd></div>`:''}</dl>
  <p class="sg-notice" role="note">${SONG_NOTICE}</p>
- <h3 class="att-h3">樂譜</h3>${files.length?`<ul class="sg-files">${files.map(f=>fileRow(f,false)).join('')}</ul>`:'<p class="att-empty">這首歌未有樂譜。</p>'}
+ <h3 class="att-h3">檔案</h3>${files.length?`<ul class="sg-files">${files.map(f=>fileRow(f,false)).join('')}</ul>`:'<p class="att-empty">這首歌未有樂譜。</p>'}
  ${can.edit?`<p><a class="att-btn primary" href="${sgUrl({tab:'upload',song:s.id})}">為這首歌上載樂譜</a></p>`:''}</section>
  ${can.edit&&old.length?`<section class="panel"><h3 class="att-h3">舊版</h3><p class="att-help">取代後的舊檔案保存在 Google Drive 這首歌的「舊版」資料夾。只有傳道同工及網站管理員看到。</p><ul class="sg-files">${old.map(f=>fileRow(f,true)).join('')}</ul></section>`:''}
  ${can.edit?sgEditForm(s):''}`;
@@ -596,8 +596,8 @@ function sgBindEdit(root,s){
  });
  $('#sg-delete-song').addEventListener('click',async e=>{
   if(!confirm(`刪除「${sgTitle(s)}」？這首歌會從歌單消失，全部樂譜移到 Google Drive 的「已刪除」資料夾，不會真正刪除。`))return;
-  e.currentTarget.disabled=true;const x=await sgFetch('song',{method:'DELETE',body:{id:s.id}});
-  if(!x.ok){e.currentTarget.disabled=false;error.textContent=songErr(x.data.error);return}
+  const b=e.currentTarget;b.disabled=true;const x=await sgFetch('song',{method:'DELETE',body:{id:s.id}});
+  if(!x.ok){b.disabled=false;error.textContent=songErr(x.data.error);return}
   toast(`已刪除「${sgTitle(s)}」`);go(sgUrl());
  });
 }
@@ -636,7 +636,7 @@ async function sgUpload(root,sequence){
  <div class="sg-newsong" id="sg-newsong" hidden>${sgTitleFields()}</div>
  <fieldset class="sg-set"><legend>2. 類型及調</legend>${sgKindPick('upkind',p.get('kind')==='drum'?'drum':'score')}${sgKeySelect('sg-up-key',p.get('key')||'')}</fieldset>
  <p class="sg-replace" id="sg-replace" role="status" hidden></p>
- <fieldset class="sg-set"><legend>3. 檔案</legend><label class="att-btn sg-pick" for="sg-files">選擇 PDF 或相片</label><input id="sg-files" class="sr-only" type="file" accept="application/pdf,image/*" multiple>
+ <fieldset class="sg-set"><legend>3. 檔案</legend><label class="att-btn sg-pick">選擇 PDF 或相片<input id="sg-files" class="sr-only" type="file" accept="application/pdf,image/*" multiple></label>
  <ol class="sg-photos" id="sg-photos"></ol><p class="att-help" id="sg-files-note">未選擇檔案。</p></fieldset>
  <div class="att-actions"><button class="att-btn primary" type="submit" id="sg-up-go">上載</button></div>
  <p class="sg-progress" id="sg-progress" role="status"></p><p class="error" role="alert" id="sg-up-error"></p></form></section>`;
@@ -749,7 +749,7 @@ async function sgAdmin(root,sequence){
  <div class="att-actions"><button type="button" class="att-btn" id="sg-scan">重新掃描 Drive</button><button type="button" class="att-btn" id="sg-picker">${fake?'從 Drive 選取檔案（示範）':'用 Google Picker 選取檔案'}</button></div>
  <p class="att-help" id="sg-picker-note" hidden></p>
  <div id="sg-scan-result" aria-live="polite"></div></section>`;
- $('#sg-scan').addEventListener('click',async e=>{e.currentTarget.disabled=true;const x=await sgFetch('scan');e.currentTarget.disabled=false;if(!x.ok){toast(songErr(x.data.error));return}sgScanList(x.data.files,'掃描完成')});
+ $('#sg-scan').addEventListener('click',async e=>{const b=e.currentTarget;b.disabled=true;const x=await sgFetch('scan');b.disabled=false;if(!x.ok){toast(songErr(x.data.error));return}sgScanList(x.data.files,'掃描完成')});
  $('#sg-picker').addEventListener('click',async()=>{
   if(!fake){const n=$('#sg-picker-note');n.hidden=false;n.textContent=d.picker?'Google Picker 未啟用（第一版只有介面）。':'未設定 Google Picker：要先在 Google Cloud 建立 API key 及 App ID，再設為 Worker secret GOOGLE_PICKER_API_KEY。';return}
   const x=await sgFetch('scan');if(!x.ok){toast(songErr(x.data.error));return}
@@ -773,9 +773,9 @@ function sgScanList(files,heading){
   li.querySelector('[data-sg-attach]').addEventListener('click',async e=>{
    const song=ch.get(),err=li.querySelector('.error');err.textContent='';
    if(!song||song==='new'){err.textContent='請先選歌。';return}
-   e.currentTarget.disabled=true;
+   const b=e.currentTarget;b.disabled=true;
    const x=await sgFetch('attach',{method:'POST',body:{drive_id:f.id,song:song.id,kind:sgKindOf(li,'scankind'+i),key:li.querySelector('select').value}});
-   if(!x.ok){e.currentTarget.disabled=false;err.textContent=songErr(x.data.error);return}
+   if(!x.ok){b.disabled=false;err.textContent=songErr(x.data.error);return}
    li.innerHTML=`<p class="sg-scan-done">已把「${esc(f.name)}」歸入 <a href="${sgUrl({song:song.id})}">${esc(sgTitle(song))}</a>。</p>`;
   });
  });

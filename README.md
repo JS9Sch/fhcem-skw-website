@@ -2,7 +2,7 @@
 
 [開啟展示網站](https://fhcem-skw-preview.pages.dev)
 
-信望愛福音會筲箕灣堂新網站（試行版，內容待教會審閱）：公開頁面有真正的網址（主頁、認識我們、聚會時間、教會活動、教會通告、聯絡我們、鳴謝及授權）；肢體專區有原 Google 講道表格及資料入口，另有開發中的點名、詩歌、房間預約及詩歌簡報工具。
+信望愛福音會筲箕灣堂新網站（試行版，內容待教會審閱）：公開頁面有真正的網址（主頁、認識我們、聚會時間、教會活動、教會通告、聯絡我們、鳴謝及授權）；肢體專區有原 Google 講道表格及資料入口，另有團契點名、詩歌庫（試行），以及開發中的房間預約及詩歌簡報工具。
 
 ## 公開與私人資料
 
@@ -11,13 +11,17 @@
 - 臨時密碼的驗證雜湊與 session 簽署金鑰只存於 Cloudflare Secrets，不在前端或此 repo。
 - `.env`、`.dev.vars`、API 金鑰、登入 cookies、盤點原檔、上傳壓縮檔、私人講道／會友文件及測試證據不納入版本控制。
 - 真正私人資料將來需使用受後端權限保護的儲存空間。`.gitignore` 不能刪除已上傳的秘密，也不能代替資料授權。
-- 團契點名存於 Cloudflare D1（只存團內稱呼）；房間預約、詩歌庫及簡報仍是示範資料，只存在當前瀏覽器 localStorage。
+- 團契點名存於 Cloudflare D1（只存團內稱呼）；詩歌庫的歌曲資料存於同一個 D1，樂譜 PDF 存於教會的 Google Drive（網站代讀寫）；房間預約及簡報仍是示範資料，只存在當前瀏覽器 localStorage。
 
 ## 臨時登入
 
 肢體專區的 HTML 和程式檔由 Worker 驗證 session 後提供。登入頁只有一個密碼欄：會友密碼換取有效 8 小時的 HttpOnly、Secure、SameSite=Strict cookie；全體傳道同工共用的同工密碼（由網站管理員在點名「設定」設定，PBKDF2 雜湊存於 D1）及網站管理員密碼（Worker secret `ATTENDANCE_ADMIN_CODE_HASH`）換取同類 cookie，但記住 90 日。更改同工密碼會即時登出所有同工；更換管理員雜湊會登出管理員。每次登入另有 Durable Object 有效記錄；登出會先持久撤銷該 session，再刪除 cookie，已複製的 cookie 亦隨即失效。其他裝置的獨立登入不受影響；更換密碼雜湊會令既有 session 失效。登入有 Cloudflare 每個位置的速率限制，並非全域精確鎖定。
 
 團契點名：每個團契有一條點名連結 `/attendance/#<token>`，由同工建立或重設後發到該團群組。token 只在網址 fragment（不會送到伺服器記錄），頁面讀取後即從網址列移除，經 `POST /api/attendance/link` 換取只限該團的 HttpOnly cookie（90 日）；D1 只存 token 的 SHA-256。持連結即有該團的全部點名功能（點名、改期／取消、名單、該團月訊一行及統計），但不能開啟肢體專區其他內容；每次修改記下「<團名>連結」。重設連結會令舊連結及記住它的手機即時失效。每按一次即儲存一個人的出席狀態或一個人數，幾部手機同時點名不會互相覆蓋。
+
+詩歌庫（試行）：已登入的會友可搜尋歌曲、在瀏覽器檢視或下載樂譜／鼓譜 PDF（歌頁及下載均提示「只供本堂聚會及練習使用，請勿外傳」）；同工及管理員可上載（一個 PDF，或最多 10 張相片在瀏覽器按次序合成一個 PDF，上限 20 MB）、取代（舊檔移到該歌的「舊版」）、刪除（移到「已刪除」，不會真正刪除）及修改歌曲資料。權限只在 `src/songs.js` 的 `songAccess()` 判斷，日後改為個人登入時只改這一處。PDF 由 Worker 驗證登入後從 Google Drive 轉送，Drive 檔案不公開分享。Drive 版面：`網站／詩歌庫／<中文歌名>／樂譜（X調）.pdf`、`鼓譜.pdf`、`原檔／`、`舊版／`，以及 `網站／詩歌庫／已刪除／`。
+
+Google Drive 連接：Worker secrets `GOOGLE_CLIENT_ID`、`GOOGLE_CLIENT_SECRET`（OAuth Web client，scope 只有 `drive.file`：網站只看到自己建立或用 Google Picker 選取的檔案）。管理員在詩歌庫「管理」按「連接 Google Drive」，用教會帳戶按「允許」；refresh token 以 AES-GCM 加密存於 D1（金鑰由 `PREVIEW_SESSION_SECRET` 導出），亦可改用 secret `GOOGLE_REFRESH_TOKEN`。OAuth redirect URI：`https://fhcem-skw-preview.pages.dev/api/google/callback`（可用 `GOOGLE_REDIRECT_URI` 覆蓋）。「重新掃描 Drive」列出直接放在「網站／詩歌庫」而未歸入的 PDF；Google Picker 要另設 API key（`GOOGLE_PICKER_API_KEY`），第一版只有介面。本機開發在 `.dev.vars` 加 `SONGS_FAKE_DRIVE=1`，改用本機 D1 內的假 Drive，不會連接 Google；`node scripts/songs-seed.mjs <核對表.csv> 20` 產生假資料 SQL（`wrangler d1 execute ATT_DB --local --file …`）。上線前：GitHub variable `D1_MIGRATIONS=local` 時，先在已授權的本機執行 `npx wrangler d1 migrations apply ATT_DB --remote`（`0002_songs.sql`），再設定上述 Google secrets；不要在 Cloudflare 設 `SONGS_FAKE_DRIVE`。
 
 房間預約的示範單位（「網站管理員」、傳道同工及團契）仍只是展示資料分類。密碼只交給獲邀試用的人，不寫進公開 README 或 issue。
 
@@ -46,6 +50,7 @@ python scripts/check-resources.py https://localhost:8787
 python scripts/check-doc-layout.py https://localhost:8787
 python scripts/check-ui-controls.py https://localhost:8787
 python scripts/check-walks.py https://localhost:8787
+python scripts/check-songs.py https://localhost:8787   # 詩歌庫；要先清空本機 D1 並匯入假資料（見腳本說明）
 python scripts/check-preview.py https://localhost:8787
 ```
 
@@ -55,7 +60,7 @@ python scripts/check-preview.py https://localhost:8787
 
 - `site/`：公開頁面的來源（版面、頁面、內容資料）。`npm run build` 產生 `public/**/index.html` 及 `src/member-index.txt`；產生的檔案一併提交，`npm test` 會檢查是否最新。部署流程不需另加 build 步驟。
 - `public/`：產生的公開頁面、`assets/site.css`／`site.js`、肢體專區樣式 `assets/members.css`、相片及 PDF。這裡的每個檔案皆可公開存取。
-- `src/worker.js`（入口）、`src/router.js`（路由，可在 node:test 測試）、`src/auth.js`、`src/session-store.js`：登入與可撤銷 session。`src/attendance.js`、`src/attendance-core.js`、`src/unit-access.js`：團契點名 API、規則及月訊表、同工／管理員密碼與點名連結 cookie。`SESSIONS` 綁定 SQLite Durable Objects，每個登入只保存到期時間，登出／到期清除；不存密碼、cookie、會友或點名資料。
+- `src/worker.js`（入口）、`src/router.js`（路由，可在 node:test 測試）、`src/auth.js`、`src/session-store.js`：登入與可撤銷 session。`src/attendance.js`、`src/attendance-core.js`、`src/unit-access.js`：團契點名 API、規則及月訊表、同工／管理員密碼與點名連結 cookie。`src/songs.js`、`src/songs-core.js`、`src/drive.js`：詩歌庫 API、排序／搜尋規則、Google Drive（及本機假 Drive）存取。`SESSIONS` 綁定 SQLite Durable Objects，每個登入只保存到期時間，登出／到期清除；不存密碼、cookie、會友或點名資料。
 - `src/member-app.txt`、`src/member-index.txt`：由 Worker bundle 載入的肢體區程式與頁面，部署端受 session 保護；repo 裡的程式本身不是秘密。
 - `site/data/documents.mjs`：四份原 PDF 的結構化閱讀版（/notices/<slug>/）。`site/data/bus.mjs`：「怎樣來」巴士下車資料（城巴、九巴及運輸署開放數據，2026 年 11 月）。
 - `preview-address/`：Pages 網址透過 Service Binding 呼叫 Worker；不公開帳戶子網域。
@@ -112,4 +117,4 @@ secret 的 JSON 結構為 `sermons: {url, embedUrl, tabs: [{label, url}]}` 及 `
 
 公開：`/`、`/about/`（`faith/`、`history/`、`churches/`）、`/meetings/`、`/activities/`、`/notices/`（`weather/`、`song-copyright/`、`recreation/`、`weddings-funerals/`、`covid-2023/`）、`/contact/`、`/credits/`、`/login/`、`/attendance/`（打開團契點名連結）。不存在的網址顯示 404 頁；舊 Wix 網址不再轉向。
 
-肢體專區：`/members/`、`/members/resources/`、`/members/attendance/`、`/members/songs/`、`/members/rooms/`、`/members/ppt/`。未登入會 302 到 `/login/?next=…`；`/members/app.js` 未登入回 401。只持團契點名連結的手機只可開 `/members/attendance/` 及其程式檔。
+肢體專區：`/members/`、`/members/resources/`、`/members/attendance/`、`/members/songs/`（`?song=<id>` 歌頁、`?tab=upload`、`?tab=admin`）、`/members/rooms/`、`/members/ppt/`。未登入會 302 到 `/login/?next=…`；`/members/app.js` 未登入回 401。只持團契點名連結的手機只可開 `/members/attendance/` 及其程式檔。

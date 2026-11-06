@@ -42,18 +42,21 @@ try:
             assert not page.evaluate('document.documentElement.scrollWidth > innerWidth + 1')
             page.screenshot(path=str(OUT / f'attendance-{width}.png'), full_page=True, animations="disabled")
 
+            # 詩歌庫 (real list from D1; local runs use the seeded fake data): search box
+            # (Uiverse satyamchaudharydev) with keyboard clear, list restored afterwards.
             page.goto(BASE + '/members/songs/')
-            expect(page.locator('.song-row')).to_have_count(3)
-            page.locator('[data-category="感恩"]').click()
+            page.wait_for_selector('.sg-list li')
+            before = page.locator('.sg-list > li').count()
             query = page.get_by_label('搜尋詩歌', exact=True)
-            query.fill('找不到')
-            expect(page.locator('.song-row')).to_have_count(0)
+            query.fill('找不到的歌')
+            expect(page.locator('.sg-list .empty')).to_have_count(1)
             query.press('Tab')
             expect(page.get_by_role('button', name='清除詩歌搜尋')).to_be_focused()
             page.keyboard.press('Enter')
             expect(query).to_be_focused()
-            expect(page.locator('.song-row')).to_have_count(1)
-            expect(page.locator('[data-category="感恩"]')).to_have_class('active')
+            expect(page.locator('.sg-list > li')).to_have_count(before)
+            page.get_by_role('button', name='最近加入').click()
+            expect(page.get_by_role('button', name='最近加入')).to_have_attribute('aria-pressed', 'true')
             assert not page.evaluate('document.documentElement.scrollWidth > innerWidth + 1')
             page.screenshot(path=str(OUT / f'songs-{width}.png'), full_page=True, animations="disabled")
 
