@@ -2,6 +2,7 @@
 // (bundled as text), so this module also runs under node:test.
 import { memberResources } from './member-resources.js';
 import { attendanceApi } from './attendance.js';
+import { songsApi, googleApi } from './songs.js';
 import { configured, passwordMatches, sessionCookie, clearCookie, authenticated, revokeSession, SessionStorageUnavailable } from './auth.js';
 import { identify, readLink } from './unit-access.js';
 // Member views share one protected page; the script picks the view from the path.
@@ -27,7 +28,7 @@ async function login(request, env) {
  if (!who) return json({error:'invalid_password'},401);
  return json({authenticated:true,role:who.role},200,{'Set-Cookie':await sessionCookie(env,Date.now(),who)});
 }
-async function handle(request, env, { memberScript, memberHTML }) {
+async function handle(request, env, { memberScript, memberHTML, waitUntil }) {
  const url=new URL(request.url), path=url.pathname;
  if (path==='/api/login'||path==='/api/logout') {
   if(request.method!=='POST')return json({error:'method_not_allowed'},405,{'Allow':'POST'});
@@ -40,6 +41,9 @@ async function handle(request, env, { memberScript, memberHTML }) {
  }
  // Attendance checks its own methods and, for writes, the Origin (same rule as login).
  if(path.startsWith('/api/attendance/'))return attendanceApi(request,env);
+ // 詩歌庫 (same rule: methods, Origin for writes, then the 肢體專區 login) and its Google connection.
+ if(path.startsWith('/api/songs/'))return songsApi(request,env,{waitUntil});
+ if(path.startsWith('/api/google/'))return googleApi(request,env);
  if(request.method!=='GET'&&request.method!=='HEAD')return json({error:'method_not_allowed'},405);
  if(path==='/api/session'){
   const session=await authenticated(request,env);
