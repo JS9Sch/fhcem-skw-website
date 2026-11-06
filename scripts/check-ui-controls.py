@@ -23,34 +23,27 @@ try:
                                     data={'password': password}, max_redirects=0).status == 200
             page = ctx.new_page()
             page.on('pageerror', lambda error: errors.append(str(error)))
+            # Attendance (real data, D1) opens on its code form; the roll-call buttons
+            # (Uiverse WhiteNervosa) are exercised with test codes in check-attendance.py.
             page.goto(BASE + '/members/attendance/')
             expect(page.locator('h1')).to_have_text('團契點名')
-            search = page.get_by_label('搜尋團友', exact=True)
-            search.fill('A')
-            expect(page.locator('[data-person]:visible')).to_have_count(1)
-            clear = page.get_by_role('button', name='清除團友搜尋')
-            expect(clear).to_be_visible()
-            clear.click()
-            expect(search).to_be_focused()
-            expect(search).to_have_value('')
-            expect(page.locator('[data-person]:visible')).to_have_count(6)
-            search.fill('沒有此人')
-            expect(page.locator('#people-empty')).to_be_visible()
-            search.press('Escape')
-            expect(page.locator('[data-person]:visible')).to_have_count(6)
-            row = page.locator('[data-person="A"]')
-            absent = row.get_by_role('button', name='缺席', exact=True)
-            absent.focus()
-            absent.press('Space')
-            expect(row.locator('[aria-pressed="true"]')).to_have_count(1)
-            expect(absent).to_have_attribute('aria-pressed', 'true')
-            expect(page.locator('#att-stats strong')).to_have_text(['2', '1', '3'])
-            for button in row.locator('[data-status]').all():
-                box = button.bounding_box()
+            expect(page.locator('#att-unlock-form')).to_be_visible()
+            page.locator('#att-unlock-submit').click()
+            expect(page.locator('#att-unlock-error')).to_have_text('請先選擇團或身分。')
+            expect(page.locator('#att-unit')).to_be_focused()
+            page.locator('#att-unit').select_option('paul')
+            page.locator('#att-unlock-submit').click()
+            expect(page.locator('#att-unlock-error')).to_have_text('請輸入點名碼。')
+            code = page.get_by_label('點名碼', exact=True)
+            expect(code).to_be_focused()
+            label = page.locator('label[for="att-code"]')
+            resting = label.bounding_box()['y']
+            code.fill('ABCD')  # Floating label (Uiverse alexruix) moves up once there is text.
+            page.wait_for_timeout(250)
+            assert label.bounding_box()['y'] < resting - 8
+            for target in [page.locator('#att-unlock-submit'), page.locator('#att-unit'), code]:
+                box = target.bounding_box()
                 assert box['height'] >= 44 and box['width'] >= 44, box
-            page.locator('#save-attendance').click()
-            page.reload()
-            expect(page.locator('[data-person="A"] [data-status="缺席"]')).to_have_attribute('aria-pressed', 'true')
             assert not page.evaluate('document.documentElement.scrollWidth > innerWidth + 1')
             page.screenshot(path=str(OUT / f'attendance-{width}.png'), full_page=True, animations="disabled")
 
@@ -106,7 +99,7 @@ try:
             page.screenshot(path=str(OUT / f'home-{width}.png'), full_page=True, animations="disabled")
             assert ctx.request.post(BASE + '/api/logout', headers={'Origin': BASE}, max_redirects=0).ok
             ctx.close()
-            checks.append(f'{width}×{height}: search/clear/filter, exclusive attendance/save, category tabs, form check, CTA navigation, reveals, no overflow')
+            checks.append(f'{width}×{height}: song search/clear/filter, attendance code form, category tabs, form check, CTA navigation, reveals, no overflow')
         browser.close()
     assert not errors, errors
     result = {'base': BASE, 'checks': checks, 'pageErrors': errors}

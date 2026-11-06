@@ -22,22 +22,22 @@ try:
     page.locator('#password').fill('wrong-preview-test');page.locator('#login-submit').click();expect(page.locator('#login-error')).to_contain_text('密碼不正確')
     assert page.locator('#password').input_value()==''
     page.screenshot(path=str(OUT/'login-phone.png'),full_page=True)
-   page.evaluate("localStorage.setItem('fhcem-preview-v1',JSON.stringify({unit:'本人',attendance:{'本人:2026-11-01':{A:'出席',B:'未記錄',C:'未記錄',D:'未記錄',E:'未記錄',F:'未記錄'}},bookings:[]}))")
+   page.evaluate("localStorage.setItem('fhcem-preview-v1',JSON.stringify({unit:'本人',attendance:{'本人:2026-11-01':{A:'出席'}},bookings:[{id:'old',unit:'本人',date:'2026-11-01',room:'示範房間 B',time:'14:00',purpose:'示範'}]}))")
    require_page_origin(page,BASE)
    page.locator('#password').fill(password);page.locator('#login-submit').click()
-   expect(page.locator('h1')).to_have_text('團契點名');expect(page).to_have_url(BASE+'/members/attendance/');expect(page.locator('.unit-label')).to_have_text('示範單位：網站管理員')
+   expect(page.locator('h1')).to_have_text('團契點名');expect(page).to_have_url(BASE+'/members/attendance/');expect(page.locator('#att-unlock-form')).to_be_visible();expect(page.locator('.unit-label')).to_have_count(0)
    assert page.request.get(BASE+'/members/app.js').status==200
    assert page.request.get(BASE+'/api/session').json()['authenticated']
    cookies=ctx.cookies();cookie=next(c for c in cookies if c['name']=='__Host-fhcem_preview');assert cookie['httpOnly'] and cookie['secure'] and cookie['sameSite']=='Strict'
    sensitive.append(cookie['value'])
    assert '__Host-fhcem_preview' not in page.evaluate('document.cookie')
    assert password not in page.request.get(BASE+'/assets/site.js').text();assert password not in page.request.get(BASE+'/members/app.js').text()
-   saved=page.evaluate("JSON.parse(localStorage.getItem('fhcem-preview-v1'))");assert saved['unit']=='網站管理員';assert '網站管理員:2026-11-01' in saved['attendance'];assert '本人:2026-11-01' not in saved['attendance']
+   saved=page.evaluate("JSON.parse(localStorage.getItem('fhcem-preview-v1'))");assert saved['unit']=='網站管理員';assert saved['bookings'][0]['unit']=='網站管理員';assert 'attendance' not in saved
    page.reload();expect(page.locator('h1')).to_have_text('團契點名')
    for route,title in [('attendance','團契點名'),('songs','詩歌庫'),('rooms','房間預約'),('ppt','詩歌簡報')]:
     page.goto(BASE+'/members/'+route+'/');expect(page.locator('h1')).to_have_text(title)
     assert not page.evaluate('document.documentElement.scrollWidth>innerWidth+1'),(width,route)
-   page.goto(BASE+'/members/');page.locator('[data-enter]').click();expect(page.locator('#unit option[value="本人"]')).to_have_count(0);assert '本人' not in page.locator('#unit').inner_text();expect(page.locator('#unit')).to_have_value('網站管理員');page.locator('#enter-demo').click();expect(page.locator('h1')).to_contain_text('網站管理員')
+   page.goto(BASE+'/members/rooms/');expect(page.locator('.unit-label')).to_have_text('示範單位：網站管理員');page.locator('[data-enter]').click();expect(page.locator('#unit option[value="本人"]')).to_have_count(0);assert '本人' not in page.locator('#unit').inner_text();expect(page.locator('#unit')).to_have_value('網站管理員');page.locator('#enter-demo').click();expect(page.locator('.booking-item')).to_contain_text('示範')
    page.screenshot(path=str(OUT/f'workspace-{width}.png'),full_page=True)
    copied_cookie=cookie['name']+'='+cookie['value']
    page.locator('#member-logout').click();expect(page).to_have_url(BASE+'/');assert page.request.get(BASE+'/members/app.js').status==401
@@ -47,7 +47,7 @@ try:
    page.goto(BASE+'/members/attendance/');expect(page).to_have_url(re.compile(r'/login/\?next='));expect(page.locator('#password')).to_be_visible()
    ctx.close()
   assert not errors,errors
-  checks.append('390×844, 320×740, 1440×1000: password login, refresh, four tools, unit switch, admin-name migration, logout, direct-link denial')
+  checks.append('390×844, 320×740, 1440×1000: password login, refresh, four tools (attendance asks for its code), room-demo unit switch, admin-name migration, logout, direct-link denial')
   checks.append('Signed session cookie is HttpOnly/Secure/SameSite Strict; no password in frontend scripts')
   out={'base':BASE,'checks':checks,'pageErrors':errors};(OUT/('live-check.json' if BASE.startswith('https') else 'local-check.json')).write_text(json.dumps(out,ensure_ascii=False,indent=2));print(json.dumps(out,ensure_ascii=False));b.close()
 except Exception as e:

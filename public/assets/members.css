@@ -109,7 +109,7 @@
 .workspace .att-bar{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:8px 18px;margin-bottom:14px;font-size:15px}
 .workspace .att-bar b{color:var(--red)}
 .workspace .att-bar .link-button{min-height:44px}
-.workspace .att-tabs{display:flex;gap:6px;overflow-x:auto;margin:0 0 18px;padding:2px 2px 6px;scrollbar-width:thin}
+.workspace .att-tabs{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 18px}
 .workspace .att-tabs a{flex:none;display:inline-flex;align-items:center;min-height:44px;padding:0 15px;border:1.5px solid var(--ink);border-radius:3px;color:var(--ink);text-decoration:none;font-weight:500;background:rgba(255,255,255,.5)}
 .workspace .att-tabs a[aria-current=page]{background:var(--ink);color:var(--plaster)}
 .workspace .att-unsent{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px 16px;padding:12px 14px;margin-bottom:16px;border:2px solid var(--amber);border-left-width:8px;background:#FBF0DD;border-radius:3px;font-size:15px}
@@ -225,8 +225,10 @@
   .workspace .att-savebar .att-btn.primary{flex:1 1 100%}
   .workspace .att-settings div{grid-template-columns:1fr}
   .workspace .att-report{font-size:14px}
-  .workspace .att-report th,.workspace .att-report td{padding:7px 4px}
-  .workspace .att-report thead th{font-size:12px}
+  .workspace .att-report th,.workspace .att-report td{padding:7px 3px}
+  .workspace .att-report thead th{font-size:12px;letter-spacing:0}
+  .workspace .att-report tbody th{min-width:4.6em}
+  .workspace .att-tabs a{padding:0 12px}
 }
 /* Very narrow phones: the name sits above its three choices. */
 @media (max-width:359px){

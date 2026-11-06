@@ -62,9 +62,10 @@ def new_page(ctx):
 
 
 def shot(page, name):
+    # Full-page pictures: the save bar is drawn where it ends, not stuck to the bottom of the screen.
     SHOTS.mkdir(parents=True, exist_ok=True)
     page.wait_for_timeout(250)
-    page.screenshot(path=str(SHOTS / name), full_page=True, animations='disabled')
+    page.screenshot(path=str(SHOTS / name), full_page=True, animations='disabled', style='.att-savebar{position:static!important}#toast{display:none}')
 
 
 def layout(page, label):
