@@ -8,7 +8,7 @@ export function meetingsPage() {
   const rows = [...meetings].sort((a, b) => CATS.indexOf(a.category) - CATS.indexOf(b.category) || DAY_ORDER.indexOf(a.day) - DAY_ORDER.indexOf(b.day) || a.time.localeCompare(b.time));
   const table = `<fieldset class="filter needs-js" aria-controls="meeting-table">
     <legend>只看</legend>
-    ${['全部', ...CATS].map((c, i) => `<label class="pill"><input type="radio" name="cat" value="${i ? c : ''}"${i ? '' : ' checked'}><span>${c}</span></label>`).join('')}
+    <span class="pills">${['全部', ...CATS].map((c, i) => `<label class="pill"><input type="radio" name="cat" value="${i ? c : ''}"${i ? '' : ' checked'}><span>${c}</span></label>`).join('')}</span>
   </fieldset>
   <p class="filter-status vh" role="status" aria-live="polite"></p>
   <table class="mtable reveal" id="meeting-table">

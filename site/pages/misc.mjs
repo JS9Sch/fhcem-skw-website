@@ -12,7 +12,7 @@ export function creditsPage() {
     </dl>` }) +
     sec({ id: 'map', label: '地圖資料', body: `<dl class="facts credits reveal">
       ${row('附近地圖', '地圖資料 © <a class="link" href="https://www.openstreetmap.org/copyright" rel="noopener" target="_blank">OpenStreetMap 貢獻者</a>，以 Open Database License（ODbL）授權；2026 年 11 月 6 日下載，由本網站繪製成圖。')}
-      ${row('交通資料', '電車站、港鐵出口及巴士路線同樣取自 OpenStreetMap，以運輸公司公布為準。')}
+      ${row('交通資料', '電車站及港鐵出口取自 OpenStreetMap。巴士站及路線取自城巴、九巴及運輸署開放數據（資料一線通 DATA.GOV.HK，2026 年 11 月下載）。班次以運輸公司公布為準。')}
     </dl>` }) +
     sec({ id: 'fonts', label: '字型', body: `<dl class="facts credits reveal">
       ${row('昭源宋體 Chiron Sung HK', '標題字型。作者 Chiron（tamcy），以 SIL Open Font License 1.1 授權，經 Google Fonts 載入。')}

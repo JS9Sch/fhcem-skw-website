@@ -2,6 +2,23 @@
 import { readFileSync } from 'node:fs';
 import content from '../data/content.mjs';
 import { esc, arrow, external, CHURCH } from './layout.mjs';
+import { STOPS, EAST, WEST, TERMINUS, NIGHT, SPECIAL } from '../data/bus.mjs';
+
+const route = r => `<li${NIGHT.includes(r) ? ' class="night"' : SPECIAL.includes(r) ? ' class="special"' : ''}><b>${r}</b>${NIGHT.includes(r) ? '<small>通宵</small>' : SPECIAL.includes(r) ? '<small>特別班</small>' : ''}</li>`;
+const routes = list => `<ul class="routes">${list.map(route).join('')}</ul>`;
+
+function busBlock(open) {
+  return `<ul class="bus-stops">${STOPS.map(([n, d, t]) => `<li><b>${n}</b>（${d}）：${t}</li>`).join('')}</ul>
+      <details class="bus"${open ? ' open' : ''}><summary>按路線看在哪個站下車</summary>
+        <h4>乘往東行（往柴灣方向）的巴士</h4>
+        <dl class="bus-groups">${EAST.map(([from, stops]) => `<div><dt>由${from}</dt>${stops.map(([stop, list]) => `<dd><span class="at">在<b>${stop}</b>下車</span>${routes(list)}</dd>`).join('')}</div>`).join('')}</dl>
+        <h4>乘往西行（往北角、西灣河方向）的巴士：全部在<b>新成街</b>下車</h4>
+        ${routes(WEST)}
+        <p class="bus-note">以筲箕灣總站為終點的路線（${TERMINUS.join('、')}），請在南康街或南安里下車，不要坐到總站。</p>
+        <p class="bus-note"><span class="rt-tag">通宵</span>通宵線　<span class="rt-tag">特別班</span>只在特定時段行駛。</p>
+      </details>
+      <p class="src">班次以運輸公司公布為準。資料來源：城巴、九巴及運輸署開放數據（2026 年 11 月）。</p>`;
+}
 
 const DAYS = [['星期日', '日', '主日'], ['星期一', '一'], ['星期二', '二'], ['星期三', '三'], ['星期四', '四'], ['星期五', '五'], ['星期六', '六']];
 export const MAIN_WORSHIP = ['主日崇拜', '週六晚崇拜'];
@@ -39,22 +56,21 @@ export function addressBlock({ headingLevel = 'p' } = {}) {
   <dl class="facts">
     <div><dt>電話</dt><dd><a href="tel:${CHURCH.tel}">${CHURCH.phone}</a></dd></div>
     <div><dt>傳真</dt><dd>${CHURCH.fax}</dd></div>
-    <div><dt>電郵</dt><dd>${CHURCH.email}<span class="tag" title="原網站顯示的電郵與寄信連結不一致，請先致電確認">待核對</span></dd></div>
+    <div><dt>電郵</dt><dd>${CHURCH.email}<span class="tip"><button type="button" class="tag tip-btn" aria-describedby="tip-email" aria-expanded="false">待核對</button><span class="tip-text" role="tooltip" id="tip-email">原網站顯示的電郵與寄信連結不一致，請先致電確認。</span></span></dd></div>
   </dl>`;
 }
 
 export const mapsButton = `<a class="btn" href="${CHURCH.maps}" target="_blank" rel="noopener">在 Google 地圖開啟 ${arrow}<span class="vh">（在新分頁開啟）</span></a>`;
 
-export function waysBlock() {
+export function waysBlock({ open = false } = {}) {
   return `<div class="mapwrap" tabindex="0" role="group" aria-label="附近地圖（可左右捲動）">${mapSvg}</div>
   <p class="maphint">地圖可以左右拖動。</p>
   <ul class="ways">
     <li><span class="mode tram">電車</span><div><b>南康街站</b>就在門前（往筲箕灣方向）。往西行的<b>新成街站</b>約 100 米。</div></li>
     <li><span class="mode mtr">港鐵</span><div><b>筲箕灣站 A3 出口</b>最近，約 200 米（直線距離）；A1、A2 出口亦在附近。</div></li>
-    <li><span class="mode bus">巴士</span><div><b>新成街站</b>及<b>南康街站</b>在門前，共 39 條路線。
-      <details><summary>查看路線</summary><p class="routes">2 2X 8H 14 18X 19P 33X 77 77A 81 81A 82 82S 85 85A 99 102 102P 106 106P 110 307D 382 606 608 608P 682 682A 682B 694 694S 720 720A N8 N8X A12 NA12 B13 N122</p></details></div></li>
+    <li><span class="mode bus">巴士</span><div>${busBlock(open)}</div></li>
   </ul>
-  <p class="src">地圖及路線資料來自 OpenStreetMap（2026 年 11 月），以運輸公司公布為準。</p>`;
+  <p class="src">地圖、電車站及港鐵出口資料來自 OpenStreetMap（2026 年 11 月）。</p>`;
 }
 
 export const steps = `<ol class="steps reveal">

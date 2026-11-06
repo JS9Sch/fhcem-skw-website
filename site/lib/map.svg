@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 520 300" class="map" role="img" aria-labelledby="map-t map-d">
 <title id="map-t">信望愛福音會筲箕灣堂附近地圖</title>
-<desc id="map-d">教會位於筲箕灣道華寶大廈 2 樓，地下是香港賽馬會投注處。門前有電車站南康街及巴士站新成街、南康街；港鐵筲箕灣站 A1 至 A3 出口在東面約 200 至 270 米。</desc>
+<desc id="map-d">教會位於筲箕灣道華寶大廈 2 樓，地下是香港賽馬會投注處。門前有電車站南康街；巴士站新成街（往西行）在同一邊，南康街及南安里（往東行）在馬路對面；港鐵筲箕灣站 A1 至 A3 出口在東面約 200 至 270 米。</desc>
 <defs><clipPath id="mclip"><rect width="520" height="300"/></clipPath></defs><g clip-path="url(#mclip)">
 <rect width="520" height="300" fill="#E4E2DC"/>
 <path d="M259.4 -8.6L301.9 35.4L306.1 39.1L310.4 42.1L315.9 45.0L318.9 46.1L318.9 45.2L331.5 45.1L331.3 -9.7L260.6 -9.9L259.4 -8.6Z" fill="#D3D0C8"/>
@@ -1081,11 +1081,11 @@
 <g class="exit"><rect x="441.3" y="128.3" width="22" height="18" rx="4" fill="#0075C2"/><text x="452.3" y="137.3" dy="0.36em" text-anchor="middle">A1</text></g>
 <g class="tram-stop"><circle cx="210.3" cy="161.0" r="8" fill="#1D4A37" stroke="#fff" stroke-width="2"/><text x="210.3" y="161.0" dy="0.36em" text-anchor="middle">電</text></g>
 <rect x="195.3" y="158.9" width="7" height="7" fill="#1A1918" stroke="#fff" stroke-width="1.2"/>
-<rect x="189.6" y="148.7" width="7" height="7" fill="#1A1918" stroke="#fff" stroke-width="1.2"/>
-<rect x="183.3" y="137.4" width="7" height="7" fill="#1A1918" stroke="#fff" stroke-width="1.2"/>
-<rect x="178.9" y="129.6" width="7" height="7" fill="#1A1918" stroke="#fff" stroke-width="1.2"/>
-<rect x="204.9" y="143.1" width="7" height="7" fill="#1A1918" stroke="#fff" stroke-width="1.2"/>
-<rect x="204.1" y="141.7" width="7" height="7" fill="#1A1918" stroke="#fff" stroke-width="1.2"/>
+<text x="191.8" y="162.4" dy=".36em" text-anchor="end" class="bs">新成街</text>
+<rect x="200.1" y="141.4" width="7" height="7" fill="#1A1918" stroke="#fff" stroke-width="1.2"/>
+<text x="210.6" y="144.9" dy=".36em" text-anchor="start" class="bs">南康街</text>
+<rect x="265.5" y="256.3" width="7" height="7" fill="#1A1918" stroke="#fff" stroke-width="1.2"/>
+<text x="276.0" y="259.8" dy=".36em" text-anchor="start" class="bs">南安里</text>
 </g>
 <g class="pin"><path d="M177.2 173.3L156.0 167.3" stroke="#1A1918" stroke-width="1.5"/><rect x="6.0" y="143.3" width="150" height="48" rx="3" fill="#1A1918"/><text x="16.0" y="163.3" class="pin-t">信望愛福音會</text><text x="16.0" y="182.3" class="pin-s">2 樓・地下賽馬會</text></g>
 <text x="470.3" y="114.7" class="mtr" text-anchor="end">港鐵筲箕灣站</text>

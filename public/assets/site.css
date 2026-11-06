@@ -227,15 +227,32 @@ img{display:block;max-width:100%;height:auto}
 .map .pin-s{font-size:11px;fill:var(--amber);font-weight:700}
 .map .mtr{font-size:12px;font-weight:700;fill:#0075C2;paint-order:stroke;stroke:#E4E2DC;stroke-width:3px}
 .map .sc{font-size:10px;fill:var(--ink);font-weight:700}
+.map .bs{font-size:10px;font-weight:700;fill:var(--ink);paint-order:stroke;stroke:#FBFAF7;stroke-width:3px}
 .map .attr{font-size:8px;fill:#77746e}
 .sec > *,.visit > *,.hero-row > *{min-width:0}
 .ways{list-style:none;margin-top:18px;border-top:1.5px solid var(--ink)}
-.ways li{display:grid;grid-template-columns:3.4em 1fr;gap:12px;padding:12px 0;border-bottom:1px solid var(--tile-light);font-size:15px;line-height:1.65}
+.ways > li{display:grid;grid-template-columns:3.4em 1fr;gap:12px;padding:12px 0;border-bottom:1px solid var(--tile-light);font-size:15px;line-height:1.65}
 .mode{font-size:12px;font-weight:700;letter-spacing:.1em;color:#fff;border-radius:3px;text-align:center;height:24px;line-height:24px}
 .mode.tram{background:#1D4A37}.mode.mtr{background:#0075C2}.mode.bus{background:var(--ink)}
 .ways details{margin-top:6px}
 .ways summary{cursor:pointer;font-weight:500;color:var(--ink);display:inline-block;border-bottom:1.5px solid var(--ink)}
-.routes{margin-top:8px;font-variant-numeric:tabular-nums;word-spacing:.6em;font-weight:500;line-height:1.9}
+.bus-stops{list-style:none;display:grid;gap:4px}
+.bus-stops li{padding-left:14px;position:relative}
+.bus-stops li::before{content:"";position:absolute;left:0;top:.7em;width:7px;height:7px;background:var(--ink)}
+details.bus{margin-top:10px}
+details.bus h4{font-size:15px;font-weight:700;margin:16px 0 8px;letter-spacing:.04em}
+.bus-groups{display:grid;gap:12px}
+.bus-groups > div{border-top:1px solid var(--tile-light);padding-top:10px}
+.bus-groups dt{font-size:14px;color:var(--ink-soft);margin-bottom:6px}
+.bus-groups dd + dd{margin-top:8px}
+.bus-groups .at{display:block;font-size:14px;margin-bottom:4px}
+.routes{list-style:none;display:flex;flex-wrap:wrap;gap:6px;margin:0;padding:0}
+.routes li{display:inline-flex;align-items:baseline;gap:4px;min-width:3.2em;justify-content:center;padding:2px 8px;border:1.5px solid var(--ink);border-radius:3px;background:rgba(255,255,255,.5);font-variant-numeric:tabular-nums;font-size:15px;line-height:1.6}
+.routes li small{font-size:10px;font-weight:700;color:var(--ink-soft)}
+.routes li.night{border-color:#3A3F63;background:#E3E4EC}
+.routes li.special{border-style:dashed}
+.bus-note{margin-top:12px;font-size:14px;color:var(--ink-soft);line-height:1.7}
+.rt-tag{display:inline-block;font-size:11px;font-weight:700;border:1px solid var(--ink-soft);border-radius:2px;padding:0 5px;margin-right:4px;color:var(--ink)}
 .maphint{display:none;font-size:12px;color:var(--ink-soft);margin-top:6px}
 .src{font-size:12px;color:var(--ink-soft);margin-top:10px}
 .sec > .steps{grid-column:2}
@@ -263,6 +280,7 @@ img{display:block;max-width:100%;height:auto}
 .menu a[aria-current="page"]{color:var(--red);font-weight:700}
 .foot h2{font-family:var(--sung);font-weight:900;font-size:18px;letter-spacing:.12em;margin-bottom:12px}
 .sec-body{min-width:0}
+/* Arrow motion adapted from Uiverse nathAd17/heavy-warthog-57 (MIT). */
 .btn .arr{width:18px;height:18px;flex:none;transition:transform .2s ease}
 .btn:hover .arr,.btn:focus-visible .arr{transform:translateX(4px)}
 .btn .ext,.link .ext,.pdfs .ext{width:15px;height:15px;flex:none}
@@ -416,6 +434,7 @@ button.btn{border:0;font:inherit;font-weight:700;cursor:pointer}
 .credits div{grid-template-columns:9em 1fr}
 .credits dd{font-weight:400}
 .credits .tag{margin-left:8px}
+.credits dd .link,.src .link{white-space:nowrap}
 .uiverse{list-style:none;border-top:2px solid var(--ink)}
 .uiverse li{display:grid;grid-template-columns:9em 1fr auto;gap:4px 16px;padding:12px 0;border-bottom:1px solid var(--tile-light);align-items:baseline}
 .uiverse b{font-family:var(--sung);font-weight:700;font-size:17px}
@@ -427,6 +446,33 @@ button.btn{border:0;font:inherit;font-weight:700;cursor:pointer}
 .sc-sign{font-family:var(--sung);font-weight:900;font-size:16px;fill:var(--red);letter-spacing:.5px}
 .sc-sign-s{font-family:var(--sung);font-weight:700;font-size:8.5px;fill:var(--red-deep);letter-spacing:2px}
 .sc-wp{font-family:var(--sung);font-weight:700;font-size:8.5px;fill:#E2C27A;letter-spacing:.5px}
+
+/* ---------- adapted Uiverse components (MIT, see /credits/) ---------- */
+/* Category tabs: Yaya12085/rude-mouse-79. Inputs stay focusable (the original hid them with display:none). */
+.pills{display:inline-flex;flex-wrap:wrap;gap:2px;padding:4px;border:1.5px solid var(--ink);border-radius:3px;background:var(--plaster-deep)}
+.pill{position:relative;display:block}
+.pill input{position:absolute;inset:0;width:100%;height:100%;margin:0;opacity:0;cursor:pointer}
+.pill span{display:block;padding:8px 16px;min-height:40px;border-radius:2px;font-size:15px;letter-spacing:.06em;transition:background .15s ease,color .15s ease}
+.pill:hover span{background:rgba(255,255,255,.6)}
+.pill input:checked + span{background:var(--ink);color:var(--plaster);font-weight:700}
+.pill input:focus-visible + span{outline:3px solid var(--red);outline-offset:2px}
+/* Floating label: alexruix/slippery-snail-18. Uses :placeholder-shown so optional fields behave too. */
+.field{position:relative}
+.field input,.field textarea{display:block;width:100%;font:inherit;color:var(--ink);background:rgba(255,255,255,.4);border:1.5px solid var(--ink-soft);border-radius:3px;padding:18px 14px 8px;transition:border-color .15s ease,box-shadow .15s ease}
+.field textarea{resize:vertical;min-height:150px}
+.field label{position:absolute;left:10px;top:13px;padding:0 5px;color:var(--ink-soft);pointer-events:none;transform-origin:left top;transition:transform .15s ease,color .15s ease}
+.field input:focus,.field textarea:focus{outline:none;border-color:var(--red);box-shadow:0 0 0 3px rgba(174,24,32,.22)}
+.field input:focus ~ label,.field textarea:focus ~ label,.field input:not(:placeholder-shown) ~ label,.field textarea:not(:placeholder-shown) ~ label{transform:translateY(-22px) scale(.84);background:var(--plaster);color:var(--ink)}
+.field [aria-invalid="true"]{border-color:var(--red)}
+.field .err{display:block;margin-top:4px}
+/* Tooltip: G4b413l/dry-turtle-84. Opens on hover, keyboard focus or tap; Escape closes. */
+.tip{position:relative;display:inline-block}
+.tip-btn{font:inherit;font-size:12px;background:none;cursor:help;line-height:1.5}
+.tip-text{position:absolute;bottom:calc(100% + 10px);right:-6px;width:max-content;max-width:min(240px,70vw);background:var(--ink);color:var(--plaster);font-size:13px;font-weight:400;line-height:1.6;padding:8px 10px;border-radius:3px;visibility:hidden;opacity:0;transition:opacity .2s ease;z-index:5;text-align:left}
+.tip-text::after{content:"";position:absolute;top:100%;right:18px;border:6px solid transparent;border-top-color:var(--ink)}
+.tip:hover .tip-text,.tip-btn:focus-visible + .tip-text,.tip.open .tip-text{visibility:visible;opacity:1}
+.tip.dismissed .tip-text{visibility:hidden;opacity:0}
+@media (prefers-reduced-motion:reduce){.field input,.field textarea,.field label,.pill span,.tip-text{transition:none}}
 
 /* ---------- responsive ---------- */
 @media (max-width:1080px){
