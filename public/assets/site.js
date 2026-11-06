@@ -82,7 +82,7 @@
         const r = await fetch('/api/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ password: input.value }) });
         input.value = '';
         if (r.ok) { location.assign(next); return; }
-        error.textContent = r.status === 429 ? '嘗試次數太多，請一分鐘後再試。' : r.status === 503 ? '登入暫時未能使用，請稍後再試。' : '密碼不正確，請重新輸入。';
+        error.textContent = r.status === 429 ? '嘗試次數太多，請一分鐘後再試。' : r.status === 503 || r.status === 404 || r.status === 405 ? '登入暫時未能使用，請稍後再試。' : '密碼不正確，請重新輸入。';
         input.focus();
       } catch {
         input.value = ''; error.textContent = '連線未完成，請檢查網絡後再試。';
