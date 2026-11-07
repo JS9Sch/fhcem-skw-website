@@ -306,6 +306,8 @@
 .workspace .sg-tags em.sg-tag,.workspace .sg-tag{font-style:normal;font-size:12px;white-space:nowrap;padding:1px 7px;border:1px solid var(--red);border-radius:2px;color:var(--red);background:#fff}
 .workspace .sg-tags-inline{display:flex;flex-wrap:wrap;gap:4px;max-width:none;justify-content:flex-start}
 .workspace .sg-tag-filter{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
+/* Tag buttons keep their width and wrap to a new line instead of squeezing (「只有鼓譜（10）」 overflowed at 320px). */
+.workspace .sg-tag-filter button{flex:none;white-space:nowrap}
 .workspace .sg-filter-label{font-size:13px;color:var(--ink-soft);margin-right:2px}
 .workspace .sg-std{font-size:12px;font-weight:500;vertical-align:2px;margin-left:6px;padding:1px 6px;border:1px solid var(--ink-soft);border-radius:2px;color:var(--ink-soft)}
 .workspace .sg-file-ver{padding-left:14px;border-left:3px solid var(--tile-light)}
