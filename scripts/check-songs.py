@@ -13,7 +13,7 @@ headers, no edit controls and 403 for writes; 管理員 upload a PDF as a new so
 with 3 phone photos joined into one 3-page PDF (order changed first), 舊版 and restore,
 delete to 已刪除, a second 版本 (簡譜) beside the 標準 file and replacing only that version,
 edit details and 標籤, filter the list by 標籤 and find it by search, 連接 Google Drive (fake consent), 重新掃描 + attach,
-the fake Picker, delete a song; at 320/390/1440 no overflow and targets at least 44px.
+the fake Picker, 歸入 with 新增歌曲 (full-width brackets in the title), delete a song; at 320/390/1440 no overflow and targets at least 44px.
 """
 import getpass, io, re, sys, time
 from pathlib import Path
@@ -31,6 +31,8 @@ password = getpass.getpass('Member password (hidden): ')
 admin_code = getpass.getpass('Local admin password (hidden): ')
 NOTICE = '只供本堂聚會及練習使用，請勿外傳'
 NEW_SONG = '測試新歌' + time.strftime('%H%M%S')
+PICK_SONG = '測試歸入新歌（全形）'
+PICK_SONG_STORED = '測試歸入新歌(全形)'
 checks, errors = [], []
 SIZE_JS = '''[...document.querySelectorAll('#sg-root .att-btn,#sg-root .att-tabs a,#sg-root .sg-item,#sg-root [data-sg-show],#sg-root .sg-kind button,#sg-root .sg-choice,#sg-root select,#sg-root .ui-search-field input,#sg-root .text-link')]
  .filter(e=>e.getClientRects().length&&getComputedStyle(e).visibility!=='hidden'&&!e.closest('[hidden]'))
@@ -280,6 +282,28 @@ def admin_flow(browser):
     dlg.get_by_role('button', name='選取').click()
     expect(page.locator('.sg-scan > li')).to_have_count(1)
     ok('重新掃描 lists loose PDFs, attach one, fake Picker picks the other')
+    # 5b. 歸入 a song that is not in the library yet: 新增歌曲 → 歸入 (title typed with full-width brackets).
+    item = page.locator('.sg-scan > li').first
+    item.get_by_label('搜尋歌名').fill(PICK_SONG)
+    item.locator('.sg-new').click()
+    expect(item.locator('.sg-newsong')).to_be_visible()
+    expect(item.get_by_label('中文歌名')).to_have_value(PICK_SONG)
+    item.get_by_role('button', name='歸入').click()
+    expect(item).to_contain_text('已把')
+    pick_url = BASE + item.locator('a').get_attribute('href')
+    page.goto(pick_url); page.wait_for_selector('.sg-song')
+    expect(page.locator('.sg-song')).to_contain_text(PICK_SONG_STORED)
+    expect(page.locator('.sg-files li')).to_have_count(1)
+    songs_page(page, '')
+    page.get_by_label('搜尋詩歌', exact=True).fill(PICK_SONG)
+    expect(page.locator('.sg-list li')).to_have_count(1)
+    page.get_by_label('搜尋詩歌', exact=True).fill(PICK_SONG_STORED)
+    expect(page.locator('.sg-list li')).to_have_count(1)
+    page.goto(pick_url); page.wait_for_selector('.sg-song')
+    page.locator('.sg-edit summary').click()
+    page.locator('#sg-delete-song').click()
+    page.wait_for_selector('.sg-list')
+    ok('歸入 → 新增歌曲 creates the song and attaches the PDF; full-/half-width brackets both find it')
     # 6. delete the test song
     page.goto(song_url); page.wait_for_selector('.sg-song')
     page.locator('.sg-edit summary').click()

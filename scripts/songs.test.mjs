@@ -84,6 +84,11 @@ test('search: exact first, then starts-with, then contains; Chinese or English t
   assert.deepEqual(searchSongs(list, 'PRAISE').map(s => s.id), [3]);
   assert.deepEqual(searchSongs(list, '主啊我願').map(s => s.id), [1]); // punctuation in the title ignored
   assert.deepEqual(searchSongs(list, '找不到'), []);
+  // Full-width and half-width forms match each other (titles are stored NFKC, half-width).
+  assert.deepEqual(searchSongs(list, '我心所慕（這是天父世界）').map(s => s.id), [4]);
+  assert.deepEqual(searchSongs(list, '我心所慕(這是天父').map(s => s.id), [4]);
+  assert.deepEqual(searchSongs(list, 'Ｇｏｄ　Ｗｉｌｌ').map(s => s.id), [5]);
+  assert.deepEqual(searchSongs([{ id: 6, title_zh: '十字架（玻璃海）', title_en: '' }], '十字架(玻璃海)').map(s => s.id), [6]);
   assert.equal(searchSongs(list, '  ').length, 5);
 });
 

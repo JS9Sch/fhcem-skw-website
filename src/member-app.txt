@@ -605,7 +605,16 @@ function sgEditForm(s){return `<section class="panel"><details class="sg-edit"><
  <div class="sg-tag-add"><label class="att-pick" for="sg-tag-new">新標籤<input id="sg-tag-new" list="sg-tag-hints" maxlength="12" autocomplete="off"></label><datalist id="sg-tag-hints">${[...new Set([...SONG_TAGS,...(sg.list?.tags||[]).map(t=>t.name)])].map(t=>`<option value="${esc(t)}">`).join('')}</datalist><button type="button" class="att-btn" id="sg-tag-add">加標籤</button></div>
  <p class="att-help">最多 5 個，每個 1 至 12 字；按「儲存」後生效。</p></fieldset>
  <div class="att-actions"><button class="att-btn primary" type="submit">儲存</button><button class="att-btn sg-danger" type="button" id="sg-delete-song">刪除這首歌</button></div><p class="error" role="alert"></p></form></details></section>`}
-function sgTitleFields(s={}){return `<div class="field"><input id="sg-zh" maxlength="60" placeholder=" " autocomplete="off" value="${esc(s.title_zh||'')}"><label for="sg-zh">中文歌名</label></div><div class="field"><input id="sg-en" maxlength="80" placeholder=" " autocomplete="off" lang="en" value="${esc(s.title_en||'')}"><label for="sg-en">英文歌名（如有）</label></div>`}
+function sgTitleFields(s={},p='sg'){return `<div class="field"><input id="${p}-zh" maxlength="60" placeholder=" " autocomplete="off" value="${esc(s.title_zh||'')}"><label for="${p}-zh">中文歌名</label></div><div class="field"><input id="${p}-en" maxlength="80" placeholder=" " autocomplete="off" lang="en" value="${esc(s.title_en||'')}"><label for="${p}-en">英文歌名（如有）</label></div>`}
+// 新增歌曲 from a chooser: fills the title box the user typed into, then POST /api/songs/song.
+// A 409 with an existing song (same name after clean-up) uses that song instead.
+function sgFillTitle(p,text){if(/\p{Script=Han}/u.test(text))document.getElementById(p+'-zh').value=text;else document.getElementById(p+'-en').value=text}
+async function sgCreateSong(p,error){
+ const r=await sgFetch('song',{method:'POST',body:{title_zh:document.getElementById(p+'-zh').value,title_en:document.getElementById(p+'-en').value}});
+ if(r.status===409&&r.data.song){error.textContent=`詩歌庫已有「${sgTitle(r.data.song)}」，已改為用這首歌。`;return r.data.song}
+ if(!r.ok){error.textContent=songErr(r.data.error);return null}
+ return r.data.song;
+}
 function sgBindEdit(root,s){
  const form=$('#sg-edit');if(!form)return;const error=form.querySelector('.error');
  const tags=[...(s.tags||[])],box=$('#sg-tag-list'),input=$('#sg-tag-new');
@@ -677,7 +686,7 @@ async function sgUpload(root,sequence){
   else if(same.length)box.textContent=`這首歌已有 ${same.map(f=>`「${sgFileLabel(f)}」`).join('、')}：這個是新版本「${sgFileLabel({kind,key,version})}」，會並列顯示，不會取代。`};
  const chooser=sgBindChooser('sg-up-song',{allowNew:true,preset,onPick:async(picked,text)=>{
   $('#sg-newsong').hidden=picked!=='new';
-  if(picked==='new'){detail=null;if(/\p{Script=Han}/u.test(text))$('#sg-zh').value=text;else $('#sg-en').value=text;replaceNote();return}
+  if(picked==='new'){detail=null;sgFillTitle('sg',text);replaceNote();return}
   const d=picked&&await sgFetch('song?id='+picked.id);detail=d&&d.ok?d.data:null;replaceNote();
  }});
  sgBindKind(root,'upkind',replaceNote);$('#sg-up-key').addEventListener('change',replaceNote);$('#sg-up-version').addEventListener('input',replaceNote);replaceNote();
@@ -706,10 +715,8 @@ async function sgUpload(root,sequence){
   try{
    if(song==='new'){
     progress.textContent='正在新增歌曲…';
-    const r=await sgFetch('song',{method:'POST',body:{title_zh:$('#sg-zh').value,title_en:$('#sg-en').value}});
-    if(r.status===409&&r.data.song){error.textContent=`詩歌庫已有「${sgTitle(r.data.song)}」，已改為上載到這首歌。`;song=r.data.song}
-    else if(!r.ok){error.textContent=songErr(r.data.error);return}
-    else song=r.data.song;
+    song=await sgCreateSong('sg',error);
+    if(!song)return;
    }
    const photos=files[0].type!=='application/pdf';let bytes;
    if(photos){progress.textContent='正在把相片合成 PDF…';bytes=await sgPhotosToPdf(files,(i,n)=>progress.textContent=`正在合成 PDF：第 ${i} / ${n} 張`)}
@@ -844,14 +851,16 @@ function sgFakePicker(list){
 }
 function sgScanList(files,heading){
  const box=$('#sg-scan-result');if(!box)return;
- box.innerHTML=`<h3 class="att-h3">${heading}：${files.length?`${files.length} 個未歸入的 PDF`:'沒有未歸入的檔案'}</h3><ul class="sg-scan">${files.map((f,i)=>`<li data-drive="${esc(f.id)}"><p class="sg-scan-name"><b>${esc(f.name)}</b><small>${sgSize(f.size)}</small></p>${sgChooser('sg-scan-'+i,'歸入哪首歌')}<div class="sg-set">${sgKindPick('scankind'+i)}${sgKeySelect('sg-scan-key'+i)}${sgVersionField('sg-scan-version'+i)}</div><div class="att-actions"><button type="button" class="att-btn primary" data-sg-attach="${i}">歸入</button></div><p class="error" role="alert"></p></li>`).join('')}</ul>`;
+ box.innerHTML=`<h3 class="att-h3">${heading}：${files.length?`${files.length} 個未歸入的 PDF`:'沒有未歸入的檔案'}</h3><ul class="sg-scan">${files.map((f,i)=>`<li data-drive="${esc(f.id)}"><p class="sg-scan-name"><b>${esc(f.name)}</b><small>${sgSize(f.size)}</small></p>${sgChooser('sg-scan-'+i,'歸入哪首歌（或新增）')}<div class="sg-newsong" id="sg-scan-new${i}" hidden>${sgTitleFields({},'sg-scan-t'+i)}</div><div class="sg-set">${sgKindPick('scankind'+i)}${sgKeySelect('sg-scan-key'+i)}${sgVersionField('sg-scan-version'+i)}</div><div class="att-actions"><button type="button" class="att-btn primary" data-sg-attach="${i}">歸入</button></div><p class="error" role="alert"></p></li>`).join('')}</ul>`;
  files.forEach((f,i)=>{
-  const li=box.querySelector(`[data-drive="${CSS.escape(f.id)}"]`),ch=sgBindChooser('sg-scan-'+i);
+  const li=box.querySelector(`[data-drive="${CSS.escape(f.id)}"]`),p='sg-scan-t'+i;
+  const ch=sgBindChooser('sg-scan-'+i,{allowNew:true,onPick:(picked,text)=>{document.getElementById('sg-scan-new'+i).hidden=picked!=='new';if(picked==='new')sgFillTitle(p,text)}});
   sgBindKind(li,'scankind'+i);
   li.querySelector('[data-sg-attach]').addEventListener('click',async e=>{
-   const song=ch.get(),err=li.querySelector('.error');err.textContent='';
-   if(!song||song==='new'){err.textContent='請先選歌。';return}
-   const b=e.currentTarget;b.disabled=true;
+   let song=ch.get();const err=li.querySelector('.error'),b=e.currentTarget;err.textContent='';
+   if(!song){err.textContent='請先選歌，或輸入新歌名後選「新增歌曲」。';return}
+   b.disabled=true;
+   if(song==='new'){song=await sgCreateSong(p,err);if(!song){b.disabled=false;return}}
    const x=await sgFetch('attach',{method:'POST',body:{drive_id:f.id,song:song.id,kind:sgKindOf(li,'scankind'+i),key:li.querySelector('select').value,version:sgVersion(li.querySelector('.sg-version input').value)}});
    if(!x.ok){b.disabled=false;err.textContent=songErr(x.data.error);return}
    li.innerHTML=`<p class="sg-scan-done">已把「${esc(f.name)}」歸入 <a href="${sgUrl({song:song.id})}">${esc(sgTitle(song))}</a>。</p>`;
