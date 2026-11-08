@@ -1,6 +1,6 @@
 const $ = (s, root=document) => root.querySelector(s);
 const esc = s => String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const icons={home:'<path d="m3 10 9-7 9 7v11H3z"/><path d="M9 21v-8h6v8"/>',attendance:'<rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4V2h6v2M8 13l3 3 5-6"/>',songs:'<path d="M9 18V5l11-2v13M9 8l11-2"/><ellipse cx="6" cy="18" rx="3" ry="3"/><ellipse cx="17" cy="16" rx="3" ry="3"/>',rooms:'<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M7 2v6M17 2v6M3 11h18M7 15h3M14 15h3"/>',ppt:'<path d="M3 3h18v13H3zM12 16v5M7 21l5-5 5 5M7 7h10M7 11h6"/>',resources:'<path d="M3 5h7l2 3h9v12H3z"/>'};
+const icons={home:'<path d="m3 10 9-7 9 7v11H3z"/><path d="M9 21v-8h6v8"/>',attendance:'<rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4V2h6v2M8 13l3 3 5-6"/>',songs:'<path d="M9 18V5l11-2v13M9 8l11-2"/><ellipse cx="6" cy="18" rx="3" ry="3"/><ellipse cx="17" cy="16" rx="3" ry="3"/>',rooms:'<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M7 2v6M17 2v6M3 11h18M7 15h3M14 15h3"/>',ppt:'<path d="M3 3h18v13H3zM12 16v5M7 21l5-5 5 5M7 7h10M7 11h6"/>',resources:'<path d="M3 5h7l2 3h9v12H3z"/>',updates:'<path d="M12 7v5l3 2"/><circle cx="12" cy="12" r="9"/>'};
 const icon=n=>`<svg viewBox="0 0 24 24" aria-hidden="true">${icons[n]}</svg>`;
 const brand=`<a class="brand" href="/"><span class="cross" aria-hidden="true"></span><span><strong>信望愛福音會</strong><small>筲箕灣堂</small></span></a>`;
 const KEY='fhcem-preview-v1';
@@ -19,12 +19,12 @@ function download(content,name,type){const url=URL.createObjectURL(new Blob([con
 function enter(){ $('#unit').value=data.unit;$('#entry').showModal() }
 $('#enter-demo').addEventListener('click',()=>{data.unit=$('#unit').value;persist();$('#entry').close();route()});
 $('#entry').addEventListener('click',e=>{if(e.target===$('#entry'))$('#entry').close()});
-const navItems=[['home','總覽','/members/'],['resources','講道及資源','/members/resources/'],['attendance','團契點名','/members/attendance/'],['songs','詩歌庫','/members/songs/'],['rooms','房間預約','/members/rooms/'],['ppt','詩歌簡報','/members/ppt/']];
+const navItems=[['home','總覽','/members/'],['resources','講道及資源','/members/resources/'],['attendance','團契點名','/members/attendance/'],['songs','詩歌庫','/members/songs/'],['rooms','房間預約','/members/rooms/'],['ppt','詩歌簡報','/members/ppt/'],['updates','網站更新','/members/updates/']];
 const DEV=['rooms','ppt'];
 const actionArrow=()=>'<svg class="arr" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="M4 12h15M13 6l6 6-6 6"/></svg>';
 function workShell(view,content){const item=navItems.find(x=>x[0]===view);return `<div class="workspace"><div class="member-head"><nav class="crumbs" aria-label="位置"><ol><li><a href="/">主頁</a></li>${view==='home'?'<li aria-current="page">肢體專區</li>':`<li><a href="/members/">肢體專區</a></li><li aria-current="page">${item[1]}</li>`}</ol></nav><div class="work-actions">${view==='rooms'?`<span class="unit-label">示範單位：${esc(data.unit)}</span><button class="link-button" type="button" data-enter>切換單位</button>`:''}<button id="member-logout" class="logout-button" type="button">登出</button></div></div><div class="work-grid"><aside class="sidebar"><nav class="side-nav" aria-label="肢體專區功能">${navItems.map(([i,t,u])=>`<a class="${i===view?'active':''}" href="${u}" ${i===view?'aria-current="page"':''}>${icon(i)}<span>${t}</span>${DEV.includes(i)?'<em class="dev">開發中</em>':''}</a>`).join('')}</nav><div class="sidebar-note"><p>團契點名存在教會網站的資料庫；詩歌庫的樂譜存在教會的 Google Drive（試行）。房間及簡報兩個工具仍在開發中，使用示範資料，紀錄只存在這部裝置的瀏覽器。講道及資源連接教會原有的 Google 資料。</p><button class="link-button" type="button" id="reset">重設示範資料</button></div></aside><div class="work-main">${DEV.includes(view)?'<p class="dev-note"><span class="tag">開發中</span>這個工具仍在開發中：現時用示範資料，請勿輸入真實會友資料；紀錄只存在這部裝置的瀏覽器。</p>':''}${content}</div></div></div>`}
 function title(t,p,action=''){return `<div class="work-title"><div><h1>${t}</h1><p>${p}</p></div>${action}</div>`}
-function dashboard(){return workShell('home',title('歡迎回來','從今天要做的事開始。')+`<div class="quick-links">${navItems.filter(x=>x[0]==='attendance'||x[0]==='songs'||DEV.includes(x[0])).map(([i,t,u])=>`<a class="quick-card" href="${u}">${icon(i)}<strong>${t}</strong><small>${{attendance:'記錄出席及查看統計',songs:'樂譜及鼓譜 PDF',rooms:'查空檔、安排聚會',ppt:'準備投影片、匯出PPT'}[i]}</small></a>`).join('')}</div><div class="dashboard-grid"><section class="panel"><div class="panel-title"><h2>本週聚會</h2><span class="demo-flag">排程示範</span></div><div class="agenda-item"><span class="agenda-time">週六<br>14:30</span><div><h3>團契聚會</h3><p>一起查經與分享</p></div></div><div class="agenda-item"><span class="agenda-time">主日<br>10:30</span><div><h3>主日崇拜</h3><p>筲箕灣堂</p></div></div><a class="text-link ui-action" href="/members/attendance/">為聚會點名 ${actionArrow()}</a></section><section class="panel"><div class="panel-title"><h2>常用資源</h2><a href="/members/resources/" class="text-link ui-action">全部 ${actionArrow()}</a></div><a class="resource-link" href="/members/resources/">週刊及崇拜程序 <span>↗</span></a><a class="resource-link" href="/members/resources/">月訊 <span>↗</span></a><a class="resource-link" href="/members/resources/">講道集 <span>↗</span></a><a class="resource-link" href="/members/resources/">相片集 <span>↗</span></a><div class="outline-note">講道集可在站內閱讀；週刊、月訊及相片集沿用原有 Google 入口。</div></section></div>`)}
+function dashboard(){return workShell('home',title('歡迎回來','從今天要做的事開始。')+`<div class="quick-links">${navItems.filter(x=>x[0]==='attendance'||x[0]==='songs'||DEV.includes(x[0])).map(([i,t,u])=>`<a class="quick-card" href="${u}">${icon(i)}<strong>${t}</strong><small>${{attendance:'記錄出席及查看統計',songs:'樂譜及鼓譜 PDF',rooms:'查空檔、安排聚會',ppt:'準備投影片、匯出PPT'}[i]}</small></a>`).join('')}</div><div class="dashboard-grid"><section class="panel"><div class="panel-title"><h2>本週聚會</h2><span class="demo-flag">排程示範</span></div><div class="agenda-item"><span class="agenda-time">週六<br>14:30</span><div><h3>團契聚會</h3><p>一起查經與分享</p></div></div><div class="agenda-item"><span class="agenda-time">主日<br>10:30</span><div><h3>主日崇拜</h3><p>筲箕灣堂</p></div></div><a class="text-link ui-action" href="/members/attendance/">為聚會點名 ${actionArrow()}</a></section><section class="panel"><div class="panel-title"><h2>常用資源</h2><a href="/members/resources/" class="text-link ui-action">全部 ${actionArrow()}</a></div><a class="resource-link" href="/members/resources/">週刊及崇拜程序 <span>↗</span></a><a class="resource-link" href="/members/resources/">月訊 <span>↗</span></a><a class="resource-link" href="/members/resources/">講道集 <span>↗</span></a><a class="resource-link" href="/members/resources/">相片集 <span>↗</span></a><div class="outline-note">講道集可在站內閱讀；週刊、月訊及相片集沿用原有 Google 入口。</div></section></div><section class="panel up-recent" aria-labelledby="up-recent-title"><div class="panel-title"><h2 id="up-recent-title">最近網站更新</h2><a href="/members/updates/" class="text-link ui-action">全部 ${actionArrow()}</a></div><div id="up-recent" aria-live="polite"><p class="att-help">正在讀取…</p></div></section>`)}
 // Search treatment adapted from Uiverse / satyamchaudharydev (see credits.html).
 function memberSearch(id,label,placeholder,clearLabel){return `<div class="ui-search"><label for="${id}">${label}</label><div class="ui-search-field"><input type="search" id="${id}" placeholder="${placeholder}" autocomplete="off"><svg class="ui-search-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5"/></svg><button type="button" class="ui-search-clear" data-clear-search="${id}" aria-label="${clearLabel}" hidden><span aria-hidden="true">×</span></button></div></div>`}
 function bindMemberSearch(id,update){
@@ -906,7 +906,98 @@ async function loadResources(sequence){
 }
 let routeSequence=0;
 // A phone that holds only a fellowship's roll-call link (no member login) gets the roll call alone.
-async function route(){const sequence=++routeSequence;try{const response=await fetch('/api/session',{cache:'no-store'});const session=await response.json();if(sequence!==routeSequence)return;att.linkOnly=false;if(!response.ok||!session.authenticated){if(response.ok&&session.link&&location.pathname==='/members/attendance/')att.linkOnly=true;else{location.replace('/login/?next='+encodeURIComponent(location.pathname));return}}}catch{$('#app').innerHTML='<div class="workspace member-error"><h1>暫時無法確認登入狀態</h1><p>請檢查網絡後重新整理。</p><a class="link" href="/">返回主頁</a></div>';return}clearTimeout(toastTimer);$('#toast').classList.remove('visible');const path=location.pathname;let view=path.split('/')[2]||'home';$('#app').innerHTML=({home:dashboard,attendance,songs:songScreen,rooms,ppt:pptScreen,resources}[view]||dashboard)();document.title=`${view==='home'?'肢體專區':(navItems.find(x=>x[0]===view)?.[1]||'肢體專區')+'・肢體專區'}・信望愛福音會筲箕灣堂`;bind();if(view==='resources')loadResources(sequence);if(view==='attendance')loadAttendance(sequence);if(view==='songs')loadSongs(sequence);if(view==='ppt')renderSlide();window.scrollTo({top:0,behavior:'instant'})}
+async function route(){const sequence=++routeSequence;try{const response=await fetch('/api/session',{cache:'no-store'});const session=await response.json();if(sequence!==routeSequence)return;att.linkOnly=false;if(!response.ok||!session.authenticated){if(response.ok&&session.link&&location.pathname==='/members/attendance/')att.linkOnly=true;else{location.replace('/login/?next='+encodeURIComponent(location.pathname));return}}}catch{$('#app').innerHTML='<div class="workspace member-error"><h1>暫時無法確認登入狀態</h1><p>請檢查網絡後重新整理。</p><a class="link" href="/">返回主頁</a></div>';return}clearTimeout(toastTimer);$('#toast').classList.remove('visible');const path=location.pathname;let view=path.split('/')[2]||'home';$('#app').innerHTML=({home:dashboard,attendance,songs:songScreen,rooms,ppt:pptScreen,resources,updates:updatesScreen}[view]||dashboard)();document.title=`${view==='home'?'肢體專區':(navItems.find(x=>x[0]===view)?.[1]||'肢體專區')+'・肢體專區'}・信望愛福音會筲箕灣堂`;bind();if(view==='resources')loadResources(sequence);if(view==='attendance')loadAttendance(sequence);if(view==='songs')loadSongs(sequence);if(view==='ppt')renderSlide();if(view==='updates')loadUpdates(sequence);if(view==='home')loadRecentUpdates(sequence);window.scrollTo({top:0,behavior:'instant'})}
+// ----- 網站更新: internal log of website changes. Every 會友 reads; only 網站管理員 writes. -----
+// 「新」 marks entries added since this browser last opened the page (localStorage, this device only).
+const UP_API='/api/updates',UP_SEEN='fhcem-updates-seen';
+const UP_ERR={invalid_day:'日期不正確。',future_day:'日期不可以是將來。',invalid_kind:'請選類型。',invalid_area:'範圍不正確。',title_required:'請輸入標題。',title_too_long:'標題最多 60 字。',body_too_long:'內容最多 1200 字。',forbidden:'只有網站管理員可以修改網站更新。',not_found:'找不到這項更新，可能已被刪除。',offline:'未能連線，請檢查網絡後再試。',unavailable:'暫時未能讀取，請稍後再試。'};
+const upErr=c=>UP_ERR[c]||'未能完成，請稍後再試。';
+const up={kind:'',list:null};
+const upSeen=()=>{try{return Number(localStorage.getItem(UP_SEEN))||0}catch{return 0}};
+const upMarkSeen=list=>{const top=Math.max(0,...list.map(u=>u.id));try{if(top>upSeen())localStorage.setItem(UP_SEEN,String(top))}catch{}};
+async function upFetch(query='',{method='GET',body}={}){
+ let r;try{r=await fetch(UP_API+query,{method,cache:'no-store',headers:body?{'Content-Type':'application/json'}:{},body:body?JSON.stringify(body):undefined})}catch{return {ok:false,status:0,data:{error:'offline'}}}
+ const data=await r.json().catch(()=>({}));
+ if(r.status===401){location.replace('/login/?next='+encodeURIComponent(location.pathname));throw new AttStop()}
+ return {ok:r.ok,status:r.status,data};
+}
+const upDay=d=>{const [y,m,n]=d.split('-').map(Number);return `${y} 年 ${m} 月 ${n} 日`};
+const upMonth=d=>{const [y,m]=d.split('-').map(Number);return `${y} 年 ${m} 月`};
+// Body: plain text. Lines starting with ・, •, - or * become a list; blank lines split paragraphs.
+function upBody(text){
+ if(!text)return '';const out=[];let items=[],para=[];
+ const endPara=()=>{if(para.length)out.push(`<p>${para.map(esc).join('<br>')}</p>`);para=[]};
+ const endList=()=>{if(items.length)out.push(`<ul>${items.map(t=>`<li>${esc(t)}</li>`).join('')}</ul>`);items=[]};
+ for(const line of text.split('\n')){const m=/^[・•\-*]\s*(.+)$/.exec(line);if(m){endPara();items.push(m[1])}else if(!line.trim()){endPara();endList()}else{endList();para.push(line)}}
+ endPara();endList();return `<div class="up-body">${out.join('')}</div>`;
+}
+const upBadge=u=>`<span class="up-kind" data-kind="${esc(u.kind)}">${esc(u.kind_name)}</span>`;
+function upItem(u,can,seen){
+ const isNew=seen!==null&&u.id>seen;
+ return `<li class="up-item" data-up="${u.id}"><article aria-labelledby="up-t${u.id}"><p class="up-meta"><time datetime="${esc(u.day)}">${upDay(u.day)}</time>${upBadge(u)}${u.area?`<span class="up-area">${esc(u.area)}</span>`:''}${isNew?'<span class="up-new">新</span>':''}</p><h3 class="up-title" id="up-t${u.id}">${esc(u.title)}</h3>${upBody(u.body)}${can.edit?`<div class="att-actions up-tools"><button type="button" class="att-btn" data-up-edit="${u.id}">修改</button><button type="button" class="att-btn sg-danger" data-up-delete="${u.id}">刪除</button></div>`:''}</article></li>`;
+}
+function upForm(id,r,u={}){
+ return `<form class="up-form" id="${id}" novalidate><div class="up-form-row"><label class="att-pick" for="${id}-day">日期<input type="date" id="${id}-day" value="${esc(u.day||r.today)}" max="${esc(r.today)}" required></label><label class="att-pick" for="${id}-kind">類型<select id="${id}-kind">${Object.entries(r.kinds).map(([k,t])=>`<option value="${k}" ${k===(u.kind||'new')?'selected':''}>${t}</option>`).join('')}</select></label><label class="att-pick" for="${id}-area">範圍<select id="${id}-area"><option value="">不註明</option>${r.areas.map(a=>`<option ${a===u.area?'selected':''}>${a}</option>`).join('')}</select></label></div>
+ <div class="field"><input id="${id}-title" maxlength="60" placeholder=" " autocomplete="off" value="${esc(u.title||'')}" required><label for="${id}-title">標題</label></div>
+ <label class="att-pick up-text" for="${id}-body">內容（可留空；每行用「・」開頭會變成列點）<textarea id="${id}-body" maxlength="1200" rows="5">${esc(u.body||'')}</textarea></label>
+ <div class="att-actions"><button type="submit" class="att-btn primary">${u.id?'儲存修改':'發佈'}</button>${u.id?'<button type="button" class="att-btn" data-up-cancel>取消</button>':''}</div><p class="error" role="alert"></p></form>`;
+}
+const upValues=id=>({day:$(`#${id}-day`).value,kind:$(`#${id}-kind`).value,area:$(`#${id}-area`).value,title:$(`#${id}-title`).value,body:$(`#${id}-body`).value});
+function updatesScreen(){return workShell('updates',title('網站更新','教會網站的新功能、改進及內容更新，只供會友查看。')+'<div id="up-root" aria-live="polite"><p class="resource-status" role="status"><span class="spinner" aria-hidden="true"></span>正在讀取網站更新…</p></div>')}
+async function loadUpdates(sequence){
+ const root=$('#up-root');if(!root)return;
+ const r=await upFetch().catch(()=>null);
+ if(!r||sequence!==routeSequence||!root.isConnected)return;
+ if(!r.ok){root.innerHTML=`<section class="panel"><h2 class="att-h2">未能讀取</h2><p class="att-help">${upErr(r.data.error)}</p><button type="button" class="att-btn" id="up-retry">重新讀取</button></section>`;$('#up-retry').addEventListener('click',()=>{root.innerHTML='<p class="resource-status" role="status"><span class="spinner" aria-hidden="true"></span>正在讀取網站更新…</p>';loadUpdates(sequence)});return}
+ up.list=r.data;const seen=upSeen();upPaint(root,seen);upMarkSeen(r.data.updates);
+}
+function upPaint(root,seen){
+ const r=up.list,can=r.can,used=Object.keys(r.kinds).filter(k=>r.updates.some(u=>u.kind===k));
+ if(up.kind&&!used.includes(up.kind))up.kind='';
+ const shown=up.kind?r.updates.filter(u=>u.kind===up.kind):r.updates;
+ const months=[];for(const u of shown){const m=u.day.slice(0,7);let g=months.at(-1);if(!g||g.m!==m)months.push(g={m,items:[]});g.items.push(u)}
+ root.innerHTML=`${can.edit?`<details class="panel up-add"><summary class="att-btn primary">新增更新</summary><p class="att-help">只有網站管理員看到這個表格。發佈後所有會友即時看到；請勿寫會友姓名或私人資料。</p>${upForm('up-new',r)}</details>`:''}
+ <section class="panel up-log" aria-labelledby="up-log-title"><h2 class="att-h2" id="up-log-title">更新紀錄</h2>
+ ${used.length>1?`<div class="status-select sg-show sg-tag-filter up-filter" role="group" aria-label="按類型篩選"><span class="sg-filter-label" aria-hidden="true">類型</span><button type="button" data-up-kind="" aria-pressed="${!up.kind}">全部</button>${used.map(k=>`<button type="button" data-up-kind="${k}" aria-pressed="${up.kind===k}">${esc(r.kinds[k])}</button>`).join('')}</div>`:''}
+ ${shown.length?months.map(g=>`<h3 class="up-month">${upMonth(g.m)}</h3><ol class="up-list">${g.items.map(u=>upItem(u,can,seen)).join('')}</ol>`).join(''):'<p class="att-empty">暫時未有網站更新。</p>'}</section>`;
+ root.querySelectorAll('[data-up-kind]').forEach(b=>b.addEventListener('click',()=>{up.kind=b.dataset.upKind;upPaint(root,seen);root.querySelector(`[data-up-kind="${up.kind}"]`)?.focus()}));
+ if(!can.edit)return;
+ upBindForm(root,'up-new',null,seen);
+ root.querySelectorAll('[data-up-edit]').forEach(b=>b.addEventListener('click',()=>{
+  const u=r.updates.find(x=>x.id==b.dataset.upEdit),li=root.querySelector(`[data-up="${u.id}"]`),id='up-edit'+u.id;
+  li.innerHTML=upForm(id,r,u);upBindForm(root,id,u,seen);li.querySelector('[data-up-cancel]').addEventListener('click',()=>upPaint(root,seen));$(`#${id}-title`).focus();
+ }));
+ root.querySelectorAll('[data-up-delete]').forEach(b=>b.addEventListener('click',async()=>{
+  const u=r.updates.find(x=>x.id==b.dataset.upDelete);if(!confirm(`刪除「${u.title}」？會友將不再看到這項更新。`))return;
+  b.disabled=true;const x=await upFetch('?id='+u.id,{method:'DELETE'});
+  if(!x.ok){b.disabled=false;toast(upErr(x.data.error));return}
+  r.updates=r.updates.filter(y=>y.id!==u.id);upPaint(root,seen);toast(`已刪除「${u.title}」`);
+ }));
+}
+function upBindForm(root,id,u,seen){
+ const form=$('#'+id);if(!form)return;const err=form.querySelector('.error');
+ form.addEventListener('submit',async e=>{
+  e.preventDefault();err.textContent='';const v=upValues(id);
+  if(!v.title.trim()){err.textContent=upErr('title_required');$(`#${id}-title`).focus();return}
+  const btn=form.querySelector('[type=submit]');btn.disabled=true;
+  const x=await upFetch(u?'?id='+u.id:'',{method:u?'PUT':'POST',body:v});
+  btn.disabled=false;
+  if(!x.ok){err.textContent=upErr(x.data.error);return}
+  const list=up.list.updates.filter(y=>y.id!==x.data.update.id);list.push(x.data.update);
+  list.sort((a,b)=>a.day<b.day?1:a.day>b.day?-1:b.id-a.id);up.list.updates=list;
+  if(!u)upMarkSeen([x.data.update]);
+  upPaint(root,u?seen:Math.max(seen,x.data.update.id));toast(u?'已儲存修改':'已發佈');
+  root.querySelector(`[data-up="${x.data.update.id}"]`)?.scrollIntoView({block:'nearest'});
+ });
+}
+async function loadRecentUpdates(sequence){
+ const box=$('#up-recent');if(!box)return;
+ const r=await upFetch().catch(()=>null);
+ if(sequence!==routeSequence||!box.isConnected)return;
+ if(!r||!r.ok){box.innerHTML='<p class="att-help">暫時未能讀取網站更新。</p>';return}
+ const seen=upSeen(),list=r.data.updates.slice(0,3);
+ box.innerHTML=list.length?`<ol class="up-list up-mini">${list.map(u=>`<li class="up-item"><p class="up-meta"><time datetime="${esc(u.day)}">${upDay(u.day)}</time>${upBadge(u)}${u.id>seen?'<span class="up-new">新</span>':''}</p><a class="up-title" href="/members/updates/">${esc(u.title)}</a></li>`).join('')}</ol>`:'<p class="att-help">暫時未有網站更新。</p>';
+}
 function bind(){ $('#member-logout')?.addEventListener('click',async e=>{e.currentTarget.disabled=true;try{const r=await fetch('/api/logout',{method:'POST'});if(!r.ok)throw new Error();location.replace('/')}catch{e.currentTarget.disabled=false;toast('登出未完成，請檢查網絡後再試。')}});document.querySelectorAll('[data-enter]').forEach(b=>b.addEventListener('click',enter));$('.mobile-menu')?.addEventListener('click',e=>{const open=$('.site-header nav').classList.toggle('open');e.currentTarget.setAttribute('aria-expanded',open)});$('#reset')?.addEventListener('click',()=>{if(confirm('重設這個瀏覽器中的全部示範預約？')){data.bookings=[];persist();route();toast('示範資料已重設')}});
 
 

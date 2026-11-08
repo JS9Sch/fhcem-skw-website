@@ -365,3 +365,35 @@ dialog.sg-dialog .sg-pick-list label{min-height:44px;overflow-wrap:anywhere}
  .workspace .sg-file-actions{width:100%}
  .workspace .sg-file-actions .att-btn{flex:1 1 auto}
 }
+/* 網站更新 (internal change log): month headings, one entry per row, type badge, 「新」 since last visit. */
+.workspace .up-add{margin-bottom:24px}
+.workspace .up-add>summary{list-style:none;display:inline-flex}
+.workspace .up-add>summary::-webkit-details-marker{display:none}
+.workspace .up-add[open]>summary{margin-bottom:8px}
+.workspace .up-form{display:grid;gap:14px;margin-top:8px}
+.workspace .up-form-row{display:flex;flex-wrap:wrap;gap:12px}
+.workspace .up-form-row .att-pick{flex:1 1 180px;min-width:0}
+.workspace .up-text textarea{min-height:120px;border:1.5px solid var(--ink-soft);border-radius:3px;padding:10px 12px;font:inherit;font-size:16px;line-height:1.7;color:var(--ink);background:#fff;width:100%;resize:vertical}
+.workspace .up-filter{margin:14px 0 4px}
+.workspace .up-month{font-family:var(--sung);font-weight:700;font-size:17px;margin:26px 0 0;padding-bottom:8px;border-bottom:2px solid var(--ink)}
+.workspace .up-list{list-style:none;margin:0;padding:0}
+.workspace .up-item{padding:18px 0;border-bottom:1px solid var(--line);min-width:0}
+.workspace .up-meta{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;font-size:13px;color:var(--ink-soft);margin:0}
+.workspace .up-kind,.workspace .up-area,.workspace .up-new{font-size:12px;white-space:nowrap;padding:1px 8px;border-radius:2px;line-height:1.7}
+.workspace .up-kind{border:1px solid var(--ink);color:var(--ink);background:#fff}
+.workspace .up-kind[data-kind=new]{background:var(--red);border-color:var(--red);color:#fff}
+.workspace .up-kind[data-kind=fix]{border-color:var(--ink-soft);color:var(--ink-soft)}
+.workspace .up-kind[data-kind=notice]{border-color:#B8761F;color:#7A4A0E;background:#FBF1E0}
+.workspace .up-area{border:1px solid var(--tile);color:var(--ink-soft);background:rgba(255,255,255,.6)}
+.workspace .up-new{background:var(--ink);color:var(--plaster);font-weight:700}
+.workspace .up-title{display:block;font-family:var(--sung);font-weight:700;font-size:19px;line-height:1.45;margin:8px 0 0;overflow-wrap:anywhere}
+.workspace a.up-title{color:var(--ink);text-decoration:none;font-size:16px;padding:6px 0;min-height:44px}
+.workspace a.up-title:hover{color:var(--red);text-decoration:underline;text-underline-offset:3px}
+.workspace .up-body{font-size:15px;line-height:1.8;margin-top:8px;max-width:68ch;overflow-wrap:anywhere}
+.workspace .up-body p+p,.workspace .up-body p+ul,.workspace .up-body ul+p{margin-top:8px}
+.workspace .up-body ul{padding-left:1.3em;margin:4px 0 0}
+.workspace .up-body li+li{margin-top:2px}
+.workspace .up-tools{margin-top:12px}
+.workspace .up-recent{margin-top:24px}
+.workspace .up-mini .up-item{padding:12px 0}
+.workspace .up-mini .up-item:first-child{padding-top:0}

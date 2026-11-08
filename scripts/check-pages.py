@@ -1,7 +1,7 @@
 """Check every public page at 1440, 390 and 320 wide: HTTP status, JavaScript
 errors, horizontal overflow, broken images, and that reduced motion stops the
 tram; short links and buttons must stay on one line. With --members it also
-signs in (password read hidden, never printed) and checks the six member views.
+signs in (password read hidden, never printed) and checks the seven member views.
 No form is submitted. Screenshots go to evidence/pages/ (ignored).
 
 usage: python scripts/check-pages.py https://localhost:8787 [--shots] [--members]
@@ -17,7 +17,7 @@ PAGES = ['/', '/about/', '/about/faith/', '/about/history/', '/about/churches/',
          '/contact/', '/credits/', '/login/', '/attendance/', '/no-such-page/']
 SIZES = [('desktop', 1440, 1000), ('mobile', 390, 844), ('narrow', 320, 740)]
 FONT_HOSTS = ('fonts.googleapis.com', 'fonts.gstatic.com')
-MEMBER_VIEWS = ['/members/', '/members/resources/', '/members/attendance/', '/members/songs/', '/members/rooms/', '/members/ppt/']
+MEMBER_VIEWS = ['/members/', '/members/resources/', '/members/attendance/', '/members/songs/', '/members/rooms/', '/members/ppt/', '/members/updates/']
 # Short links/buttons (12 characters or fewer) whose text wraps onto a second line.
 WRAPPED = '''[...document.querySelectorAll('a,button')].filter(e=>{
   const t=e.textContent.replace(/\\s+/g,'');if(!t||t.length>12)return false;

@@ -45,6 +45,11 @@ async function verify() {
   assert.equal(resources.status, 401, 'Anonymous Google source links must be denied');
   assert.equal(resources.headers.get('cache-control'), 'no-store');
 
+  const updates = await get('/api/updates');
+  assert.equal(updates.status, 401, 'Anonymous 網站更新 API must be denied');
+  const updatesPage = await get('/members/updates/');
+  assert.equal(updatesPage.status, 302, 'Anonymous 網站更新 page must go to login');
+
   for (const name of ['recreation', 'weddings-funerals']) {
     const pdf = await get(`/documents/${name}.pdf`);
     assert.equal(pdf.status, 200, `${name} PDF`);

@@ -2,7 +2,7 @@
 seeded fake data. It uploads test files and moves them about, so it refuses anything but
 localhost. Before each run:
   stop dev; rm -rf .wrangler/state/v3/d1; npx wrangler d1 migrations apply ATT_DB --local
-  node scripts/songs-seed.mjs <review.csv> 20 > /tmp/songs-seed.sql
+  node scripts/songs-seed.mjs <first-version review CSV (private project: tools/songs-data/review-v1.csv)> 20 > /tmp/songs-seed.sql
   npx wrangler d1 execute ATT_DB --local --file /tmp/songs-seed.sql; start dev
 
 usage: python3 scripts/check-songs.py https://localhost:8787 [--shots DIR]

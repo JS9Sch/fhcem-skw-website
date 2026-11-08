@@ -3,10 +3,11 @@
 import { memberResources } from './member-resources.js';
 import { attendanceApi } from './attendance.js';
 import { songsApi, googleApi } from './songs.js';
+import { updatesApi } from './updates.js';
 import { configured, passwordMatches, sessionCookie, clearCookie, authenticated, revokeSession, SessionStorageUnavailable } from './auth.js';
 import { identify, readLink } from './unit-access.js';
 // Member views share one protected page; the script picks the view from the path.
-const MEMBER_VIEWS = ['attendance', 'songs', 'rooms', 'ppt', 'resources'];
+const MEMBER_VIEWS = ['attendance', 'songs', 'rooms', 'ppt', 'resources', 'updates'];
 const memberPagePath = path => path === '/members/' || MEMBER_VIEWS.some(v => path === `/members/${v}/`);
 // A phone holding a fellowship's roll-call link (and no member login) may open only these.
 const LINK_PATHS = ['/members/attendance/', '/members/app.js'];
@@ -44,6 +45,8 @@ async function handle(request, env, { memberScript, memberHTML, waitUntil }) {
  // 詩歌庫 (same rule: methods, Origin for writes, then the 肢體專區 login) and its Google connection.
  if(path.startsWith('/api/songs/'))return songsApi(request,env,{waitUntil});
  if(path.startsWith('/api/google/'))return googleApi(request,env);
+ // 網站更新: same rule (methods, Origin for writes, then the 肢體專區 login; only 管理員 writes).
+ if(path==='/api/updates')return updatesApi(request,env);
  if(request.method!=='GET'&&request.method!=='HEAD')return json({error:'method_not_allowed'},405);
  if(path==='/api/session'){
   const session=await authenticated(request,env);
