@@ -16,7 +16,7 @@ export function updatesAccess(session) {
 const tidy = (s, max, lines = false) => {
   if (s === undefined || s === null) return '';
   if (typeof s !== 'string') return null;
-  let t = s.normalize('NFKC').replace(/\r\n?/g, '\n').replace(/[\u0000-\u0008\u000b-\u001f\u007f]/g, '');
+  let t = s.normalize('NFC').replace(/\r\n?/g, '\n').replace(/[\u0000-\u0008\u000b-\u001f\u007f]/g, '');
   t = lines ? t.split('\n').map(l => l.replace(/\s+/g, ' ').trim()).join('\n').replace(/\n{3,}/g, '\n\n').trim() : t.replace(/\s+/g, ' ').trim();
   return t.length > max ? null : t;
 };

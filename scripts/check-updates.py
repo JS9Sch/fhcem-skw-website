@@ -103,10 +103,10 @@ with sync_playwright() as p:
     item.get_by_role('button', name='修改').click()
     page.locator('.up-item form .field input').fill(TITLE + '（改）')
     page.get_by_role('button', name='儲存修改').click()
-    expect(page.locator('.up-item', has_text=TITLE + '(改)')).to_have_count(1)
-    ok('管理員 edits it (title stored NFKC: 全形括號 → 半形)')
+    expect(page.locator('.up-item', has_text=TITLE + '（改）')).to_have_count(1)
+    ok('管理員 edits it (全形標點保留)')
     page.goto(BASE + '/members/')
-    expect(page.locator('#up-recent .up-title').first).to_have_text(TITLE + '(改)')
+    expect(page.locator('#up-recent .up-title').first).to_have_text(TITLE + '（改）')
     ok('總覽 shows it under 最近網站更新')
     close(ctx)
 

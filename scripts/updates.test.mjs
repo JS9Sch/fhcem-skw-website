@@ -52,7 +52,7 @@ test('entry rules: Hong Kong today by default, no future days, known type and ar
   assert.equal(cleanUpdate({ kind: 'fix', title: ' ' }, NOW).error, 'title_required');
   assert.equal(cleanUpdate({ kind: 'fix', title: '字'.repeat(61) }, NOW).error, 'title_too_long');
   assert.equal(cleanUpdate({ kind: 'fix', title: 'x', body: 'a'.repeat(1201) }, NOW).error, 'body_too_long');
-  assert.equal(cleanUpdate({ kind: 'fix', title: 'x', body: '第一行  \r\n\r\n\r\n\r\n・列點（全形）' }, NOW).value.body, '第一行\n\n・列點(全形)');
+  assert.equal(cleanUpdate({ kind: 'fix', title: 'x', body: '第一行  \r\n\r\n\r\n\r\n・列點（全形），保留' }, NOW).value.body, '第一行\n\n・列點（全形），保留');
 });
 
 test('permissions: 會友 and 同工 read, only 管理員 writes, roll-call link gets nothing', () => {
