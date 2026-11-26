@@ -563,3 +563,4 @@ html:not(.js) .needs-js{display:none}
 .link-open{gap:8px}
 .link-open .form-note{display:block;margin:0}
 .link-open .form-note a{color:var(--red);text-decoration:underline;text-underline-offset:3px}
+.wip{display:inline-block;font:700 11px/1.6 var(--hei,sans-serif);letter-spacing:.04em;color:#fff;background:#B5541A;padding:0 7px;border-radius:3px;white-space:nowrap;vertical-align:2px;margin:0 6px}\n

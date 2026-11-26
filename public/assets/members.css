@@ -397,3 +397,4 @@ dialog.sg-dialog .sg-pick-list label{min-height:44px;overflow-wrap:anywhere}
 .workspace .up-recent{margin-top:24px}
 .workspace .up-mini .up-item{padding:12px 0}
 .workspace .up-mini .up-item:first-child{padding-top:0}
+.wip{display:inline-block;font:700 11px/1.6 var(--hei,sans-serif);letter-spacing:.04em;color:#fff;background:#B5541A;padding:0 7px;border-radius:3px;white-space:nowrap;vertical-align:2px;margin:0 6px}\n

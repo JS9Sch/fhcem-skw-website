@@ -58,7 +58,7 @@ export function attendanceLinkPage() {
 }
 
 export function notFoundPage() {
-  const body = pagehead({ title: '找不到這一頁', lead: '網址可能已經更改。舊網站的連結不再適用，請由以下頁面再找。' }) +
+  const body = pagehead({ title: '找不到這一頁', lead: '網址可能已經更改，請由以下頁面再找。' }) +
     `<div class="nf"><ul class="cards">${[['/', '主頁'], ...NAV].map(([href, label]) => `<li><a href="${href}"><b>${label}</b><i>前往 ${arrow}</i></a></li>`).join('')}</ul></div>`;
   return page({ path: '/404', title: '找不到這一頁', description: '找不到這一頁。', body });
 }

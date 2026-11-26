@@ -1,9 +1,14 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "fhcem-skw-mvp-preview",
+  "name": "fhcem-skw-website",
   "main": "src/worker.js",
   "compatibility_date": "2026-10-19",
   "workers_dev": true,
+  // The church address. fhcem-skw.org redirects to www in src/router.js.
+  "routes": [
+    { "pattern": "www.fhcem-skw.org", "custom_domain": true },
+    { "pattern": "fhcem-skw.org", "custom_domain": true }
+  ],
   "durable_objects": {
     "bindings": [{ "name": "SESSIONS", "class_name": "PreviewSession" }]
   },
@@ -11,9 +16,9 @@
   "d1_databases": [
     {
       "binding": "ATT_DB",
-      "database_name": "fhcem-skw-attendance-hk",
-      // APAC primary (Hong Kong users). The first database (ENAM) made every query cross the Pacific.
-      "database_id": "83730595-2dc9-4be5-8f77-4a89bca102ae",
+      "database_name": "fhcem-skw-church-hk",
+      // Church Cloudflare account (Handler@), APAC primary for Hong Kong users. Moved from the old account 2026-11-26.
+      "database_id": "d248fe1e-98ef-4025-b3bd-c0cca1f84016",
       "migrations_dir": "migrations"
     }
   ],

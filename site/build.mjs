@@ -32,8 +32,23 @@ export const PAGES = {
   'login/index.html': loginPage,
   'attendance/index.html': attendanceLinkPage,
   '404.html': notFoundPage,
+  'robots.txt': robots,
+  'sitemap.xml': sitemap,
   '../src/member-index.txt': memberIndex,
 };
+
+// Search engines: only the public pages on www.fhcem-skw.org (the Worker adds noindex elsewhere).
+const SITE = 'https://www.fhcem-skw.org';
+const PRIVATE = ['login/', 'attendance/', '404.html', '../'];
+function sitemap() {
+  const urls = Object.keys(PAGES).filter(f => f.endsWith('.html') && !PRIVATE.some(p => f.startsWith(p)))
+    .map(f => SITE + '/' + f.replace(/index\.html$/, ''));
+  return '<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
+    + urls.map(u => `  <url><loc>${u}</loc></url>`).join('\n') + '\n</urlset>\n';
+}
+function robots() {
+  return `User-agent: *\nDisallow: /members/\nDisallow: /api/\nDisallow: /login/\nDisallow: /attendance/\n\nSitemap: ${SITE}/sitemap.xml\n`;
+}
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..', 'public');
 export function render() { return Object.fromEntries(Object.entries(PAGES).map(([file, fn]) => [file, fn()])); }

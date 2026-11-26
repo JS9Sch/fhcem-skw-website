@@ -1,0 +1,7 @@
+User-agent: *
+Disallow: /members/
+Disallow: /api/
+Disallow: /login/
+Disallow: /attendance/
+
+Sitemap: https://www.fhcem-skw.org/sitemap.xml

@@ -29,6 +29,25 @@ async function login(request, env) {
  if (!who) return json({error:'invalid_password'},401);
  return json({authenticated:true,role:who.role},200,{'Set-Cookie':await sessionCookie(env,Date.now(),who)});
 }
+// The church's own address. fhcem-skw.org (no www) and the old Wix page addresses
+// redirect here; only this host lets search engines index the public pages.
+export const CANONICAL_HOST = 'www.fhcem-skw.org';
+const APEX_HOST = 'fhcem-skw.org';
+const WIX_PATHS = {
+ '/visit_us': '/contact/', '/about1': '/meetings/', '/about_us': '/about/',
+ '/untitled-cdu5': '/about/history/', '/untitled-c1142': '/about/faith/', '/untitled-c1hcf': '/about/churches/',
+ '/untitled-ceh6': '/notices/', '/services': '/activities/', '/brethren': '/members/',
+};
+export function siteRedirect(url) {
+ const old = WIX_PATHS[url.pathname.replace(/\/+$/, '').toLowerCase()];
+ if (url.hostname !== APEX_HOST && !old) return null;
+ const target = new URL(url);
+ if (url.hostname === APEX_HOST) target.hostname = CANONICAL_HOST;
+ if (old) { target.pathname = old; target.search = ''; }
+ return target.href;
+}
+const PRIVATE_PREFIXES = ['/members', '/api/', '/login', '/attendance'];
+export const indexable = url => url.hostname === CANONICAL_HOST && !PRIVATE_PREFIXES.some(p => url.pathname.startsWith(p));
 async function handle(request, env, { memberScript, memberHTML, waitUntil }) {
  const url=new URL(request.url), path=url.pathname;
  if (path==='/api/login'||path==='/api/logout') {
@@ -66,10 +85,13 @@ async function handle(request, env, { memberScript, memberHTML, waitUntil }) {
   if(memberPagePath(path))return new Response(request.method==='HEAD'?null:memberHTML,{headers:{'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-store'}});
   return new Response('Not found',{status:404,headers:{'Content-Type':'text/plain; charset=utf-8','Cache-Control':'no-store'}});
  }
- if(path==='/robots.txt')return new Response('User-agent: *\nDisallow: /\n',{headers:{'Content-Type':'text/plain'}});
+ // Test addresses (workers.dev etc.) stay out of search engines; www serves public/robots.txt.
+ if(path==='/robots.txt'&&url.hostname!==CANONICAL_HOST)return new Response('User-agent: *\nDisallow: /\n',{headers:{'Content-Type':'text/plain'}});
  return env.ASSETS.fetch(request);
 }
 export async function respond(request, env, files) {
+ const moved=siteRedirect(new URL(request.url));
+ if(moved)return new Response(null,{status:301,headers:{Location:moved,'Cache-Control':'public, max-age=3600'}});
  let result;
  try { result=await handle(request,env,files); }
  catch(error) {
@@ -79,7 +101,7 @@ export async function respond(request, env, files) {
  const response=new Response(result.body,result);
  // Static PDFs open in the browser; API PDFs (詩歌庫) set their own inline/attachment name.
  if(new URL(request.url).pathname.endsWith('.pdf')&&response.headers.get('Content-Type')?.includes('application/pdf')&&!response.headers.has('Content-Disposition'))response.headers.set('Content-Disposition','inline');
- response.headers.set('X-Robots-Tag','noindex, nofollow, noarchive');
+ if(!indexable(new URL(request.url)))response.headers.set('X-Robots-Tag','noindex, nofollow, noarchive');
  response.headers.set('X-Content-Type-Options','nosniff');
  response.headers.set('Referrer-Policy','no-referrer');
  const memberPage = memberPagePath(new URL(request.url).pathname) && response.status === 200;

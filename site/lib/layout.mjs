@@ -49,7 +49,7 @@ function footer() {
     <h2>網站</h2>
     <ul><li><a href="/members/">肢體專區</a></li><li><a href="/credits/">鳴謝及授權</a></li></ul>
   </div>
-  <p class="copy"><span>© 信望愛福音會筲箕灣堂・新網站試行版，內容有待教會審閱</span><span lang="en">Faith Hope Charity Evangelical Mission</span></p>
+  <p class="copy"><span>© 信望愛福音會筲箕灣堂</span><span lang="en">Faith Hope Charity Evangelical Mission</span></p>
 </footer>`;
 }
 
@@ -60,7 +60,7 @@ export function page({ path, title, description, body, bodyClass = '', head = ''
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="robots" content="noindex,nofollow">
+<link rel="canonical" href="https://www.fhcem-skw.org${path}">
 <title>${esc(full)}</title>
 <meta name="description" content="${esc(description)}">
 <link rel="icon" href="/assets/img/church-seal.png">
@@ -101,9 +101,11 @@ export function sec({ id, label, body, cls = '', labelId }) {
 }
 
 // Marks text written for the redesign (not from the original site) for church review.
+// Unfinished features carry this badge so visitors can tell what is not ready yet.
+export const wip = () => '<span class="wip" title="這項功能仍在開發中">WIP・開發中</span>';
 export const draft = (text = '本段文字為新網站草稿，待教會審閱。') => `<p class="draft"><span class="tag">草稿</span>${text}</p>`;
 // Address with number ranges kept on one line ("205–209" must not break after the dash).
 export const addressHtml = () => CHURCH.address.replace(/(\d+–\d+)/g, '<span class="nw">$1</span>');
 export const reportNote = '<p class="src">按 2026 年 10 月 25 日主日報告整理；以教會最新公布為準。</p>';
 export const scheduleNote = '<p class="src">按教會 2026–2027 年度聚會時間表整理；以教會最新公布為準。</p>';
-export const sourceNote = '<p class="src">內容按教會原網站（2026 年 10 月存檔）整理；人事、地址及聚會安排以教會最新公布為準。</p>';
+export const sourceNote = '<p class="src">以教會最新公布為準。</p>';

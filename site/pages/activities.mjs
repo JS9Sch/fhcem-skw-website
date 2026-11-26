@@ -21,7 +21,7 @@ export function activitiesPage() {
     </article>`;
   }).join('');
   const body = pagehead({ title: '教會活動', lead: '每星期的崇拜、學習、禱告和團契生活。' }) +
-    sec({ id: 'life', label: '教會生活', body: `<div class="acts">${cards}</div>${draft('以上四類分組按原網站聚會時間表整理；各類簡介為新網站草稿，待教會審閱。聚會日子和時間只在「聚會時間」頁列出。')}` }) +
-    sec({ id: 'news', label: '活動消息', body: `<div class="first reveal"><p>原網站的活動頁只有三張圖片，沒有活動名稱或日期，所以這裏暫時沒有列出特別活動。查詢近期活動，請致電教會。</p><div class="cta"><a class="btn" href="tel:+85225609640">致電 2560 9640 ${arrow}</a><a class="link" href="/meetings/">看聚會時間</a></div></div>` });
+    sec({ id: 'life', label: '教會生活', body: `<div class="acts">${cards}</div>` }) +
+    sec({ id: 'news', label: '活動消息', body: `<div class="first reveal"><p>暫時未有特別活動消息。查詢近期活動，請致電教會。</p><div class="cta"><a class="btn" href="tel:+85225609640">致電 2560 9640 ${arrow}</a><a class="link" href="/meetings/">看聚會時間</a></div></div>` });
   return page({ path: '/activities/', title: '教會活動', description: '信望愛福音會筲箕灣堂的崇拜、主日學、祈禱會和團契。', body });
 }

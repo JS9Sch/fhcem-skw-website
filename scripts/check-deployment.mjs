@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 
-const base = new URL(process.argv[2] || 'https://fhcem-skw-preview.pages.dev');
+const base = new URL(process.argv[2] || 'https://www.fhcem-skw.org');
 assert.equal(base.protocol, 'https:', 'Deployment checks require HTTPS');
 async function get(path) {
   return fetch(new URL(path, base), {
@@ -16,7 +16,7 @@ async function verify() {
   assert.match(await home.text(), /筲箕灣/);
 
   const session = await get('/api/session');
-  assert.equal(session.status, 200, 'Session endpoint through Pages binding');
+  assert.equal(session.status, 200, 'Session endpoint');
   assert.deepEqual(await session.json(), {authenticated: false});
   assert.equal(session.headers.get('cache-control'), 'no-store');
 

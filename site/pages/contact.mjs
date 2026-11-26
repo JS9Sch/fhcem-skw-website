@@ -13,7 +13,7 @@ export function contactPage() {
       <dl class="staff reveal">${STAFF.map(([r, n]) => `<div><dt>${r}</dt><dd>${n}</dd></div>`).join('')}</dl>
     </div>${reportNote}` }) +
     sec({ id: 'write', label: '寫信給我們', body: `<form class="contact-form reveal" id="contact-form" novalidate aria-describedby="form-note">
-      <p id="form-note" class="form-note"><span class="tag">試行</span>這個表格暫時只會檢查內容，<b>不會送出</b>。請勿填寫私人資料；如有需要，請致電 ${CHURCH.phone}。</p>
+      <p id="form-note" class="form-note"><span class="wip" title="這項功能仍在開發中">WIP・開發中</span>這個表格暫時只會檢查內容，<b>不會送出</b>。請勿填寫私人資料；如有需要，請致電 ${CHURCH.phone}。</p>
       <div class="field"><input id="f-name" name="name" type="text" maxlength="60" autocomplete="name" required placeholder=" " aria-describedby="e-name"><label for="f-name">姓名</label><span class="err" id="e-name"></span></div>
       <div class="field"><input id="f-email" name="email" type="email" maxlength="120" autocomplete="email" required placeholder=" " aria-describedby="e-email"><label for="f-email">電郵</label><span class="err" id="e-email"></span></div>
       <div class="field"><input id="f-subject" name="subject" type="text" maxlength="120" placeholder=" "><label for="f-subject">主題（可留空）</label></div>

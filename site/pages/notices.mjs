@@ -47,7 +47,7 @@ export function documentPage(slug) {
   const s = sections(slug);
   const pdf = doc.file ? `<div class="cta"><a class="btn" href="${doc.file}" target="_blank" rel="noopener">開啟原文件（PDF・${kb(doc.file)} KB）${external}<span class="vh">（在新分頁開啟）</span></a><a class="link" href="${doc.file}" download>下載 PDF</a></div>` : '';
   const about = doc.file
-    ? '<p>依原 PDF 整理段落和表格，部分小標題是為方便查閱而加上。金額、條款及聚會安排都是原文件內容；現行適用版本仍待教會確認。可開啟原文件核對。</p>'
+    ? '<p>依原 PDF 整理段落和表格，部分小標題是為方便查閱而加上。金額、條款及聚會安排都是原文件內容，可開啟原文件核對。</p>'
     : '<p>內容照錄教會 2026 年 11 月提供的文字，小標題是為方便查閱而加上。</p>';
   const body = pagehead({ crumbs: CRUMB, title: doc.title, lead: esc(s.intro), note: `<p class="ph-meta">${s.date}</p>${pdf}` }) +
     `<div class="reader">
