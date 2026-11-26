@@ -36,7 +36,7 @@ export function loginPage() {
         <div class="field"><input id="password" name="password" type="password" autocomplete="current-password" autocapitalize="off" spellcheck="false" required maxlength="128" placeholder=" " aria-describedby="login-error"><label for="password">密碼</label></div>
         <p id="login-error" class="err" role="alert"></p>
         <button class="btn" type="submit" id="login-submit">登入 ${arrow}</button>
-        <p class="form-note">會友登入後 8 小時內有效；傳道同工用同工密碼登入，這部手機會記住 90 日。忘記密碼請向傳道同工查詢。</p>
+        <p class="form-note">忘記密碼請向傳道同工查詢。</p>
       </form>
     </div>`;
   return page({ path: '/login/', title: '肢體專區登入', description: '信望愛福音會筲箕灣堂肢體專區登入。', body, bodyClass: 'login-page' });
